@@ -1,0 +1,63 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String   @id @default(uuid())
+  username         String   @unique
+  password         String
+  role             String   @default("viewer")
+  bank_account     String?
+  email            String?  @unique
+  phone            String?  @unique
+  bank_name        String?
+  account_type     String?
+  account_number   String?
+  payout_email     String?
+  bank_holder_name String?
+  bank_holder_rut  String?
+  created_at       DateTime @default(now())
+  rentals          Rental[]
+  videos           Video[]
+
+  @@map("users")
+}
+
+model Video {
+  id          String   @id @default(uuid())
+  title       String
+  price       Float
+  filename    String
+  thumbnail   String?
+  description String?
+  uploader_id String
+  created_at  DateTime @default(now())
+  rentals     Rental[]
+  uploader    User     @relation(fields: [uploader_id], references: [id])
+
+  @@map("videos")
+}
+
+model Rental {
+  id              String    @id @default(uuid())
+  video_id        String
+  user_id         String
+  token           String
+  expires_at      DateTime
+  total_paid      Float
+  uploader_earned Float
+  platform_fee    Float
+  payment_id      String?
+  created_at      DateTime  @default(now())
+  paid_at         DateTime?
+  user            User      @relation(fields: [user_id], references: [id])
+  video           Video     @relation(fields: [video_id], references: [id])
+
+  @@map("rentals")
+}

@@ -1,0 +1,14 @@
+node_modules
+.env
+.env.local
+dist
+build
+backend/database.sqlite
+backend/videos
+backend/cloudflared.exe
+backend/mock-cloud-storage
+*.log
+*.mp4
+*.exe
+.DS_Store
+_S3rver_object*

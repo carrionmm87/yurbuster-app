@@ -1,0 +1,11 @@
+tunnel: e7f5af0a-7293-4630-94e3-15f136a1a1ad
+credentials-file: C:\Users\USER\.cloudflared\e7f5af0a-7293-4630-94e3-15f136a1a1ad.json
+
+ingress:
+  - hostname: yurbuster.com
+    service: http://127.0.0.1:5173
+  - hostname: www.yurbuster.com
+    service: http://127.0.0.1:5173
+  - hostname: api.yurbuster.com
+    service: http://127.0.0.1:3001
+  - service: http_status:404
