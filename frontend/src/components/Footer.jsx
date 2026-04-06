@@ -34,9 +34,9 @@ const Footer = () => {
       
       <div className="footer-bottom">
         <div className="legal-notice">
-          © {new Date().getFullYear()} YurBuster. Reservados todos los derechos. 
+          © {new Date().getFullYear()} YurBuster. Reservados todos los derechos.<br />
+          Manuel Carrión - Hamurabi #1526, Maipú, Santiago, Chile | soporte@yurbuster.com<br />
           Este sitio web contiene contenido para adultos. Al ingresar, usted confirma que es mayor de edad en su jurisdicción. 
-          Operamos bajo estrictas normas de cumplimiento legal.
         </div>
         <div className="flex gap-4">
           <Shield size={24} className="text-muted opacity-50" />

@@ -73,9 +73,9 @@ const Terms = () => {
 
         <div className="mt-12 p-8 text-center border-t border-border">
           <p className="text-muted text-sm">
-            Titular del Servicio: <strong>YurBuster Inc. / [TU NOMBRE O EMPRESA]</strong><br />
-            Representante Legal: [Tu nombre aquí]<br />
-            Dirección: [Tu dirección en Chile aquí]<br />
+            Titular del Servicio: <strong>Manuel Carrión</strong><br />
+            Representante Legal: Manuel Carrión<br />
+            Dirección: Hamurabi #1526, Maipú, Santiago, Chile<br />
             Soporte Legal: <strong>soporte@yurbuster.com</strong>
           </p>
           <button onClick={() => window.history.back()} className="btn btn-primary mt-6">

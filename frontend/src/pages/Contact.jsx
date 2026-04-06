@@ -29,9 +29,9 @@ const Contact = () => {
                   <MapPin size={24} color="var(--primary)" /> Oficina Central
                 </h3>
                 <p className="text-muted">
-                  YurBuster Inc. / [TU NOMBRE O EMPRESA]<br />
-                  Santiago de Chile, Región Metropolitana<br />
-                  [Tu dirección aquí - Requerido por CCBill]
+                  Manuel Carrión<br />
+                  Hamurabi #1526, Maipú<br />
+                  Santiago de Chile, Región Metropolitana
                 </p>
               </div>
 
@@ -41,7 +41,7 @@ const Contact = () => {
                 </h3>
                 <p className="text-muted">
                   Disponible de Lunes a Viernes (09:00 - 18:00 CLT):<br />
-                  <strong>+56 9 [Tu teléfono aquí]</strong>
+                  <strong>+56 9 90515044</strong>
                 </p>
               </div>
             </div>
