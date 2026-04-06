@@ -26,6 +26,7 @@ const Navbar = ({ user, onLogout }) => {
           </>
         ) : (
           <>
+            <Link to="/contact" className="nav-link">Contacto</Link>
             <Link to="/login" className="nav-link">Iniciar Sesión</Link>
             <Link to="/register" className="btn btn-primary">Registrarse</Link>
           </>
