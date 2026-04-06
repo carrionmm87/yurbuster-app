@@ -12,6 +12,9 @@ import PaymentSuccess from './pages/PaymentSuccess';
 import CreatorDashboard from './pages/CreatorDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Terms from './pages/Terms';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import RefundPolicy from './pages/RefundPolicy';
+import Contact from './pages/Contact';
 import axios from 'axios';
 
 // Configure Axios
@@ -69,6 +72,9 @@ function App() {
         <Route path="/payment-success" element={user ? <PaymentSuccess /> : <Navigate to="/login" />} />
         <Route path="/watch/:token" element={<Player />} />
         <Route path="/terms" element={<Terms />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/refunds" element={<RefundPolicy />} />
+        <Route path="/contact" element={<Contact />} />
       </Routes>
       <Footer />
     </>

@@ -118,12 +118,15 @@ app.post('/api/auth/register', async (req, res) => {
 
     if (existingUser) {
       if (existingUser.username === username) {
+        console.warn(`[REGISTER] El nombre de usuario '${username}' ya está en uso.`);
         return res.status(400).json({ error: 'El nombre de usuario ya está en uso' });
       }
       if (existingUser.email === email) {
+        console.warn(`[REGISTER] El email '${email}' ya está registrado.`);
         return res.status(400).json({ error: 'El email ya está registrado' });
       }
       if (existingUser.phone === phone) {
+        console.warn(`[REGISTER] El teléfono '${phone}' ya está registrado.`);
         return res.status(400).json({ error: 'El teléfono ya está registrado' });
       }
     }
@@ -148,9 +151,10 @@ app.post('/api/auth/register', async (req, res) => {
       }
     });
 
+    console.log(`[REGISTER] Usuario '${username}' registrado con éxito como '${userRole}'`);
     res.json({ success: true, message: 'Usuario registrado exitosamente' });
   } catch (error) {
-    console.error("Error al registrar usuario:", error);
+    console.error("[REGISTER] Error crítico al registrar usuario:", error);
     res.status(500).json({ error: 'Error del servidor' });
   }
 });

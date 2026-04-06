@@ -16,8 +16,9 @@ const Footer = () => {
         <div className="footer-section">
           <h4>Legal</h4>
           <ul className="footer-links">
-            <li><Link to="/terms">Términos y Condiciones</Link></li>
-            <li><Link to="/terms">Privacidad</Link></li>
+            <li><Link to="/terms">Términos del Servicio</Link></li>
+            <li><Link to="/privacy">Privacidad</Link></li>
+            <li><Link to="/refunds">Reembolsos</Link></li>
             <li><Link to="/terms">Cumplimiento 18 U.S.C. 2257</Link></li>
           </ul>
         </div>
@@ -25,8 +26,8 @@ const Footer = () => {
         <div className="footer-section">
           <h4>Ayuda</h4>
           <ul className="footer-links">
-            <li><Link to="/"><HelpCircle size={14} /> Centro de Ayuda</Link></li>
-            <li><Link to="/"><Mail size={14} /> Contacto</Link></li>
+            <li><Link to="/contact"><HelpCircle size={14} /> Soporte Técnico</Link></li>
+            <li><Link to="/contact"><Mail size={14} /> Contacto</Link></li>
           </ul>
         </div>
       </div>
