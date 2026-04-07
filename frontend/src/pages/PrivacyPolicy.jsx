@@ -13,9 +13,9 @@ const PrivacyPolicy = () => {
 
         <div className="space-y-12">
           <section>
-            <h2 className="text-2xl font-bold">1. Recopilación de Información</h2>
+            <h2 className="text-2xl font-bold">1. Recopilación de Información de Identidad</h2>
             <p>
-              YurBuster recopila información personal mínima necesaria para la prestación del servicio: correo electrónico, número de teléfono y registros de transacciones. No almacenamos datos de tarjetas de crédito; toda transacción es procesada de forma segura por CCBill.
+              YurBuster recopila únicamente los datos estrictamente necesarios para la validación y prestación del servicio solicitado: nombre de usuario, correo electrónico institucional o personal y registros de transacciones exitosas. No almacenamos datos financieros sensibles (como números de tarjetas); todo el procesamiento se delega a pasarelas certificadas (Flow/Webpay) mediante entornos cifrados externos.
             </p>
           </section>
 

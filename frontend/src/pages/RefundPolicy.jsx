@@ -48,15 +48,15 @@ const RefundPolicy = () => {
           <section>
             <h2 className="text-2xl font-bold">3. Proceso para Solicitar un Reembolso</h2>
             <p>
-              Para iniciar el proceso, envíe un correo electrónico a nuestro equipo de soporte con:
+              Para iniciar el proceso de revisión de su caso, envíe un correo electrónico a nuestro equipo de soporte corporativo con la siguiente información:
             </p>
             <ol className="list-decimal pl-6 space-y-2 mt-4">
-              <li>Número de orden o correo electrónico de la cuenta.</li>
-              <li>Nombre del video arrendado.</li>
-              <li>Descripción breve del problema técnico encontrado.</li>
+              <li>Número de orden o correo electrónico asociado a la transacción.</li>
+              <li>ID o título del contenido digital arrendado.</li>
+              <li>Descripción detallada o captura del error técnico reportado.</li>
             </ol>
             <p className="mt-4">
-              Todos los reembolsos autorizados se procesarán a través del mismo método de pago original (CCBill) y podrán tardar de **3 a 7 días hábiles** en verse reflejados en su cuenta bancaria.
+              Todos los reembolsos autorizados se procesarán a través de la misma pasarela de pago original (Flow) y los tiempos de acreditación dependerán de su entidad bancaria nacional, variando usualmente entre **3 y 10 días hábiles**.
             </p>
           </section>
 

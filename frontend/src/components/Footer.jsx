@@ -36,7 +36,7 @@ const Footer = () => {
         <div className="legal-notice">
           © {new Date().getFullYear()} YurBuster. Reservados todos los derechos.<br />
           Manuel Carrión - Hamurabi #1526, Maipú, Santiago, Chile | Tel: +56 9 90515044 | soporte@yurbuster.com<br />
-          Este sitio web contiene contenido para adultos. Al ingresar, usted confirma que es mayor de edad en su jurisdicción. 
+          Plataforma restringida para mayores de 18 años. El acceso implica la aceptación de nuestros términos y políticas de uso para contenidos digitales exclusivos.
         </div>
         <div className="flex gap-4">
           <Shield size={24} className="text-muted opacity-50" />

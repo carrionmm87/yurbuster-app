@@ -17,10 +17,10 @@ const Terms = () => {
 
         <section className="card p-8 mb-8" style={{ backgroundColor: 'rgba(99, 102, 241, 0.05)', borderColor: 'var(--primary)' }}>
           <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-            <Check size={20} className="text-primary" /> Verificación de Mayoría de Edad (18+)
+            <Check size={20} className="text-primary" /> Verificación de Acceso (+18)
           </h2>
           <p>
-            Al acceder a YurBuster, usted declara bajo juramento ser mayor de 18 años y tener la capacidad legal en su jurisdicción para consumir este tipo de contenido. YurBuster cumple con las regulaciones de cumplimiento 18 U.S.C. 2257. El contenido de este sitio es exclusivo para adultos y su acceso por menores de edad está estrictamente prohibido.
+            Al acceder a YurBuster, usted declara bajo juramento ser mayor de edad en su territorio nacional (18 años en Chile) y tener la capacidad legal para consumir contenidos digitales exclusivos. YurBuster implementa estrictas medidas de verificación y control de acceso. El contenido es exclusivo para adultos y su acceso por menores de edad está estrictamente prohibido y monitoreado.
           </p>
         </section>
 
@@ -28,10 +28,10 @@ const Terms = () => {
           <section>
             <h2 className="text-2xl font-bold flex items-center gap-2"><Info size={24} color="var(--primary)" /> 1. Descripción del Servicio</h2>
             <p>
-              YurBuster es una plataforma de arriendo de video bajo demanda (VOD). Al realizar un pago, el usuario obtiene una licencia limitada, intransferible y privada para visualizar el contenido seleccionado durante un periodo de **24 horas**. Transcurrido este tiempo, el acceso expirará automáticamente. 
+              YurBuster es una plataforma de arriendo de contenidos digitales bajo demanda (VOD). Al realizar un pago, el usuario obtiene una licencia limitada, intransferible y privada para visualizar el contenido seleccionado durante un periodo de **24 horas**. Transcurrido este tiempo, el acceso expirará automáticamente. 
             </p>
             <p className="mt-4">
-              <strong>Moneda de Transacción:</strong> Todos los precios indicados en la plataforma se expresan en **Dólares de los Estados Unidos (USD)**. Su banco emisor (ej. Santander Chile) realizará la conversión a pesos chilenos según el tipo de cambio vigente al momento de la compra.
+              <strong>Moneda de Transacción:</strong> Todos los precios indicados en la plataforma se expresan en **Pesos Chilenos (CLP)**. El procesamiento de pagos se realiza a través de pasarelas locales autorizadas (vía Flow), permitiendo el uso de tarjetas de débito, crédito y transferencias bancarias nacionales.
             </p>
           </section>
 
@@ -43,9 +43,9 @@ const Terms = () => {
           </section>
 
           <section>
-            <h2 className="text-2xl font-bold">3. Entrega de Contenido (Delivery)</h2>
+            <h2 className="text-2xl font-bold">3. Entrega de Contenido (Digital Delivery)</h2>
             <p>
-              La entrega es inmediata. Una vez que la transacción es autorizada por CCBill, el sistema redireccionará al usuario automáticamente a la página de visualización. Asimismo, el usuario recibirá un correo electrónico con el enlace de acceso directo.
+              La entrega del servicio es inmediata y 100% digital. Una vez que la transacción es autorizada por la pasarela de pagos (Flow/Webpay), el sistema redireccionará al usuario automáticamente a la interfaz de visualización privada.
             </p>
           </section>
 
