@@ -11,7 +11,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const crypto = require('crypto');
 const axios = require('axios');
-const FlowApi = require('flowcl-node-api-client');
+const flowService = require('./flow.service');
 const ffmpeg = require('fluent-ffmpeg');
 // Configure FFMPEG path based on OS
 if (process.platform === 'win32') {
@@ -36,17 +36,13 @@ const s3Client = new S3Client({
 const S3_BUCKET = process.env.S3_BUCKET;
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL; // Domain connected to R2 bucket
 
+// Flow.cl Configuration from .env
 const FLOW_API_KEY = (process.env.FLOW_API_KEY || '').trim();
 const FLOW_SECRET_KEY = (process.env.FLOW_SECRET_KEY || '').trim();
-const FLOW_API_URL = (process.env.FLOW_API_URL || 'https://sandbox.flow.cl/api').trim();
+const FLOW_API_URL = (process.env.FLOW_API_URL || 'https://www.flow.cl/api').trim();
 
-const FRONTEND_URL = 'http://localhost:5173'; 
-
-const flow = new FlowApi({
-  apiKey: FLOW_API_KEY,
-  secretKey: FLOW_SECRET_KEY,
-  apiURL: FLOW_API_URL
-});
+// Use your public domain for Flow notifications
+const BASE_URL = process.env.PUBLIC_URL || 'https://yurbuster.com'; 
 
 const app = express();
 app.use(cors());
@@ -664,7 +660,7 @@ app.get('/api/rentals', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/payment/create-charge - Create a CCBill payment (PRODUCTION)
+// POST /api/payment/create-charge - Create a Flow.cl payment (Webpay/CLP)
 app.post('/api/payment/create-charge', authMiddleware, async (req, res) => {
   const { videoId } = req.body;
   if (!videoId) return res.status(400).json({ error: 'Se requiere videoId' });
@@ -673,123 +669,137 @@ app.post('/api/payment/create-charge', authMiddleware, async (req, res) => {
     const video = await prisma.video.findUnique({ where: { id: videoId } });
     if (!video) return res.status(404).json({ error: 'Video no encontrado' });
 
-    // CCBill Configuration Setup
-    const clientAccnum = process.env.CCBILL_ACCOUNT || '999999';
-    const clientSubacc = process.env.CCBILL_SUBACCOUNT || '0000';
-    const salt = process.env.CCBILL_SALT || 'your_secure_salt_key_here';
-    const currencyCode = '840'; // USD
+    // Payment details for Flow
+    const amount = Math.round(video.price);
+    const commerceOrder = `${uuidv4().substring(0, 8)}-${videoId.substring(0, 4)}`;
+    const subject = `Arriendo: ${video.title}`;
     
-    // Convertir CLP a USD o usar un precio base en USD (Ej. Asumiremos $3000 CLP = $3 USD)
-    // CCBill exige precios en un formato sin decimales con las centésimas, e.g. "3.00" (o 3 USD)
-    const priceInUSD = (Math.max(1, video.price / 1000)).toFixed(2);
-    const formPrice = priceInUSD;
-    const formPeriod = '30'; // Dias de acceso u horas en sistema regular (CCbill standard)
-    const formName = 'CCBILL_DYNAMIC_FLEX_FORM_ID';
+    // Callback URLs
+    const urlReturn = `${BASE_URL}/payment-success`;
+    const urlConfirmation = `${BASE_URL}/api/payment/flow/webhook`;
 
-    // Construcción del Hash MD5:
-    // La fórmula estándar de CCBill para Dynamic Pricing es: formPrice, formPeriod, currencyCode, salt
-    const rawString = `${formPrice}${formPeriod}${currencyCode}${salt}`;
-    const formDigest = crypto.createHash('md5').update(rawString).digest('hex');
+    const paymentResponse = await flowService.createPayment({
+      commerceOrder,
+      subject,
+      amount,
+      email: req.user.username + "@yurbuster.com", // Fallback email
+      urlConfirmation,
+      urlReturn,
+      optional: JSON.stringify({ videoId: video.id, userId: req.user.id })
+    });
 
-    // Construcción de la URL Oficial de FlexForms
-    const init_point = `https://bill.ccbill.com/jpost/signup.cgi?clientAccnum=${clientAccnum}&clientSubacc=${clientSubacc}&formName=${formName}&formPrice=${formPrice}&formPeriod=${formPeriod}&currencyCode=${currencyCode}&formDigest=${formDigest}&videoId=${videoId}&userId=${req.user.id}`;
-
-    res.json({ init_point });
+    // Flow returns { url: "...", token: "..." }
+    res.json({ init_point: `${paymentResponse.url}?token=${paymentResponse.token}` });
 
   } catch (error) {
-    console.error("CCBill API Error:", error.message);
-    res.status(500).json({ error: 'Falla al crear pago en CCBill', details: error.message });
+    console.error("Flow API Error:", error.message);
+    res.status(500).json({ error: 'Falla al crear pago en Flow', details: error.message });
   }
 });
 
-// POST /api/payment/ccbill-postback - Webhook de CCBill
-app.post('/api/payment/ccbill-postback', async (req, res) => {
-  // Aquí CCBill nos habla directamente desde sus servidores cuando la tarjeta es aprobada
-  const { clientAccnum, clientSubacc, eventType, videoId, userId, responseDigest, subscriptionId } = req.body;
+// POST /api/payment/flow/webhook - Webhook de Flow.cl (Servidor a Servidor)
+app.post('/api/payment/flow/webhook', async (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).send('No token provided');
 
-  const salt = process.env.CCBILL_SALT || 'your_secure_salt_key_here';
+  console.log(`[FLOW-WEBHOOK] Recibida notificación para token: ${token}`);
 
-  // CCBill en un Approval Postback exige validar el hash de reversa
-  const rawString = `${subscriptionId}1${salt}`;
-  const validDigest = crypto.createHash('md5').update(rawString).digest('hex');
-
-  if (responseDigest !== validDigest) {
-    console.error(`[CCBILL] Postback Fallido: Hash Inválido para Video ${videoId}`);
-    return res.status(400).send('Declined');
-  }
-
-  // Si pasa, registramos el arriendo en la Base de Datos automáticamente
   try {
-    const video = await prisma.video.findUnique({ where: { id: videoId } });
-    if (video) {
-        // En producción CCBill aprueba el arriendo de forma asíncrona.
-        // Aquí almacenaríamos el arriendo. El frontend se encarga de checkearlo.
-        console.log(`[CCBILL] Pago Aprobado Exitosamente vía Webhook. Video: ${videoId}`);
+    const status = await flowService.getStatus(token);
+    
+    // Status 2 means "Paid" in Flow
+    if (parseInt(status.status) === 2) {
+      const { videoId, userId } = JSON.parse(status.optional);
+      
+      // Check if rental already exists
+      const existing = await prisma.rental.findFirst({ where: { payment_id: token } });
+      if (existing) {
+        console.log(`[FLOW-WEBHOOK] Arriendo ya procesado para token: ${token}`);
+        return res.status(200).send('OK');
+      }
+
+      const video = await prisma.video.findUnique({ where: { id: videoId } });
+      if (!video) throw new Error("Video no encontrado");
+
+      const totalPaid = video.price;
+      const uploaderEarned = totalPaid * 0.9;
+      const platformFee = totalPaid * 0.1;
+      const rentalToken = uuidv4();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await prisma.rental.create({
+        data: {
+          video_id: video.id,
+          user_id: userId,
+          token: rentalToken,
+          expires_at: expiresAt,
+          total_paid: totalPaid,
+          uploader_earned: uploaderEarned,
+          platform_fee: platformFee,
+          payment_id: token
+        }
+      });
+
+      console.log(`[FLOW-WEBHOOK] Pago confirmado. Arriendo creado para Usuario: ${userId}, Video: ${videoId}`);
+    } else {
+      console.log(`[FLOW-WEBHOOK] Pago no aprobado. Status: ${status.status} para token: ${token}`);
     }
   } catch (error) {
-    console.error("[CCBILL] Error guardando arriendo en postback:", error);
+    console.error("[FLOW-WEBHOOK] Error procesando notificación:", error.message);
   }
 
   res.status(200).send('OK');
 });
 
-// POST /api/rent - Confirmación temporal de 24h para UI (Protected)
+// POST /api/rent - Finalize and verify rental after Flow.cl payment
 app.post('/api/rent', authMiddleware, async (req, res) => {
-  const { videoId, token } = req.body;
-  if (!token) return res.status(400).json({ error: 'Se requiere token de pago' });
+  const { token } = req.body; // This is the Flow token
+  if (!token) return res.status(400).json({ error: 'Se requiere token de pago de Flow' });
 
   try {
-    // Aquí normalmente validarías el Webhook Approval Postback (background) o comprobarías el recibo.
-    // Nosotros validaremos que el token simulado sea válido
-    if (!token.startsWith('ccbill_mock_')) {
-      return res.status(400).json({ error: 'El pago no ha sido validado por CCBill.' });
-    }
-
-    let actualVideoId = videoId;
-
-    
-    // Extract videoId if it's encoded in JSON-like string
-    if (typeof actualVideoId === 'string' && actualVideoId.includes('videoId')) {
-      try {
-        const cleaned = actualVideoId.replace(/\\"/g, '"');
-        const match = cleaned.match(/"videoId":"([^"]+)"/);
-        if (match && match[1]) actualVideoId = match[1];
-      } catch (e) { console.warn("Error parsing optional field:", e.message); }
-    }
-
-    // Check if rental already exists for this payment_id
-    const existing = await prisma.rental.findFirst({ where: { payment_id: token } });
-    if (existing) {
-      return res.json({ success: true, token: existing.token, message: 'Arriendo ya procesado.' });
-    }
-
-    const video = await prisma.video.findUnique({ where: { id: actualVideoId } });
-    if (!video) return res.status(404).json({ error: 'Video no encontrado' });
-
-    // Finalize rental
-    const totalPaid = video.price;
-    const uploaderEarned = totalPaid * 0.9;
-    const platformFee = totalPaid * 0.1;
-    const rentalToken = uuidv4();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    const rental = await prisma.rental.create({
-      data: {
-        video_id: video.id,
-        user_id: req.user.id,
-        token: rentalToken,
-        expires_at: expiresAt,
-        total_paid: totalPaid,
-        uploader_earned: uploaderEarned,
-        platform_fee: platformFee,
-        payment_id: token
-      }
+    // 1. Check if rental was already created by the Webhook (fastest way)
+    let rental = await prisma.rental.findFirst({
+      where: { payment_id: token },
+      include: { video: true }
     });
 
-    res.json({ success: true, token: rentalToken, expiresAt: rental.expires_at, message: 'Arriendo exitoso.' });
+    // 2. Fallback: If webhook hasn't arrived, verify status directly with Flow
+    if (!rental) {
+      console.log(`[RENT] Token ${token} no encontrado en BD. Verificando directamente con Flow...`);
+      const status = await flowService.getStatus(token);
+      
+      if (parseInt(status.status) === 2) {
+        const { videoId, userId } = JSON.parse(status.optional);
+        
+        // Safety check: ensure user is the same
+        if (userId !== req.user.id) return res.status(403).json({ error: 'Usuario no coincide con el pago' });
+
+        const video = await prisma.video.findUnique({ where: { id: videoId } });
+        const rentalToken = uuidv4();
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        rental = await prisma.rental.create({
+          data: {
+            video_id: videoId,
+            user_id: userId,
+            token: rentalToken,
+            expires_at: expiresAt,
+            total_paid: video.price,
+            uploader_earned: video.price * 0.9,
+            platform_fee: video.price * 0.1,
+            payment_id: token
+          }
+        });
+        console.log(`[RENT] Arriendo creado vía fallback directo para token: ${token}`);
+      } else {
+        return res.status(400).json({ error: 'El pago aún no ha sido confirmado por Flow/Webpay.' });
+      }
+    }
+
+    res.json({ success: true, token: rental.token, expiresAt: rental.expires_at, message: 'Arriendo verificado con éxito.' });
   } catch (err) {
-    console.error("Error validando pago con Flow:", err.message);
-    return res.status(500).json({ error: 'Error al verificar estado de pago con Flow' });
+    console.error("Error validando arriendo:", err.message);
+    res.status(500).json({ error: 'Error al procesar la confirmación del arriendo' });
   }
 });
 
