@@ -768,8 +768,8 @@ app.post('/api/rent', authMiddleware, async (req, res) => {
 
     // Finalize rental
     const totalPaid = video.price;
-    const uploaderEarned = totalPaid * 0.8;
-    const platformFee = totalPaid * 0.2;
+    const uploaderEarned = totalPaid * 0.9;
+    const platformFee = totalPaid * 0.1;
     const rentalToken = uuidv4();
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 

@@ -15,6 +15,7 @@ import Terms from './pages/Terms';
 import PrivacyPolicy from './pages/PrivacyPolicy';
 import RefundPolicy from './pages/RefundPolicy';
 import Contact from './pages/Contact';
+import AgeGateModal from './components/AgeGateModal';
 import axios from 'axios';
 
 // Configure Axios
@@ -23,6 +24,7 @@ axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAgeVerified, setIsAgeVerified] = useState(localStorage.getItem('ageVerified') === 'true');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -54,6 +56,11 @@ function App() {
     delete axios.defaults.headers.common['Authorization'];
   };
 
+  const handleAgeVerify = () => {
+    setIsAgeVerified(true);
+    localStorage.setItem('ageVerified', 'true');
+  };
+
   if (loading) {
     return <div className="container text-center mt-8">Cargando...</div>;
   }
@@ -61,8 +68,9 @@ function App() {
   return (
     <>
       <Navbar user={user} onLogout={handleLogout} />
+      {!isAgeVerified && <AgeGateModal onAccept={handleAgeVerify} />}
       <Routes>
-        <Route path="/" element={<Home user={user} />} />
+        <Route path="/" element={<Home user={user} isAgeVerified={isAgeVerified} />} />
         <Route path="/login" element={!user ? <Login onLogin={handleLogin} /> : <Navigate to="/" />} />
         <Route path="/register" element={!user ? <Register onLogin={handleLogin} /> : <Navigate to="/" />} />
         <Route path="/upload" element={user && (user.role === 'creator' || user.role === 'admin') ? <Upload /> : <Navigate to="/" />} />

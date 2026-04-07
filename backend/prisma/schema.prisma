@@ -32,7 +32,7 @@ model User {
 model Video {
   id          String   @id @default(uuid())
   title       String
-  price       Float
+  price       Int
   filename    String
   thumbnail   String?
   description String?
@@ -50,9 +50,9 @@ model Rental {
   user_id         String
   token           String
   expires_at      DateTime
-  total_paid      Float
-  uploader_earned Float
-  platform_fee    Float
+  total_paid      Int
+  uploader_earned Int
+  platform_fee    Int
   payment_id      String?
   created_at      DateTime  @default(now())
   paid_at         DateTime?

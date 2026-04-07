@@ -9,7 +9,7 @@ const Footer = () => {
         <div className="footer-section">
           <h4>YurBuster</h4>
           <p className="text-muted text-sm">
-            La plataforma líder de contenido exclusivo para adultos bajo demanda.
+            La plataforma líder de contenidos digitales exclusivos para creadores independientes.
           </p>
         </div>
         

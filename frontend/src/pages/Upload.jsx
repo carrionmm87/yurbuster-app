@@ -112,14 +112,15 @@ const Upload = () => {
             />
           </div>
           <div className="form-group">
-            <label className="form-label">Precio ($)</label>
+            <label className="form-label">Precio (CLP $)</label>
             <input 
               type="number" 
               step="1"
-              min="0"
+              min="1"
               className="form-control" 
               value={price}
               onChange={(e) => setPrice(e.target.value)}
+              placeholder="Ej: 5000 (Sin puntos)"
               required 
             />
           </div>

@@ -35,22 +35,24 @@ const PaymentModal = ({ video, onClose }) => {
         
         <div className="payment-summary">
           <span>Total a pagar:</span>
-          <span className="video-price" style={{ fontSize: '1.8rem' }}>${video.price}</span>
+          <span className="video-price" style={{ fontSize: '1.8rem' }}>
+            {Number(video.price).toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })}
+          </span>
         </div>
 
         <div style={{ marginTop: '2rem', textAlign: 'center' }}>
           <button 
             onClick={handlePayment} 
             className="btn btn-primary" 
-            style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', backgroundColor: '#e21a22', borderColor: '#e21a22' }} 
+            style={{ width: '100%', padding: '1rem', fontSize: '1.1rem', backgroundColor: '#e21a22', border: 'none' }} 
             disabled={loading}
           >
-            {loading ? 'Redirigiendo a Pasarela Segura...' : `Pagar $${video.price} con CCBill`}
+            {loading ? 'Redirigiendo a Pasarela Segura...' : `Pagar con Webpay / Flow`}
           </button>
         </div>
         
         <div className="secure-badge mt-4" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: '#888' }}>
-          <Lock size={14} /> Pago discreto y seguro (CCBill / Tarjetas)
+          <Lock size={14} /> Pago seguro vía Webpay / Flow
         </div>
       </div>
     </div>

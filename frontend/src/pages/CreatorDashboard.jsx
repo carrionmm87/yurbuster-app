@@ -81,21 +81,21 @@ const CreatorDashboard = () => {
         <StatCard title="Arriendos" value={stats.totalRentals} icon={<PlayCircle size={24} />} color="var(--accent)" />
         <StatCard 
           title="Por Liquidar" 
-          value={`$${(stats.totalPendingEarnings || 0).toLocaleString()}`} 
+          value={Number(stats.totalPendingEarnings || 0).toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })} 
           icon={<DollarSign size={24} />} 
           color="#f59e0b" 
           subtext="Saldo pendiente de pago"
         />
         <StatCard 
           title="Cobrado" 
-          value={`$${(stats.totalPaidEarnings || 0).toLocaleString()}`} 
+          value={Number(stats.totalPaidEarnings || 0).toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })} 
           icon={<CheckCircle size={24} />} 
           color="#8b5cf6" 
           subtext="Liquidado a tu cuenta"
         />
         <StatCard 
           title="Ganancias Totales" 
-          value={`$${stats.totalEarnings.toLocaleString()}`} 
+          value={Number(stats.totalEarnings || 0).toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })} 
           icon={<TrendingUp size={24} />} 
           color="#22c55e" 
           subtext="Histórico neto"
@@ -140,7 +140,9 @@ const CreatorDashboard = () => {
                           <span className="px-3 py-0.5 rounded-full text-[10px] font-bold bg-accent/10 text-accent uppercase tracking-widest">
                             {video.rentalCount} Arriendos
                           </span>
-                          <span className="text-sm font-medium text-muted">${video.price.toLocaleString()} / c.u.</span>
+                          <span className="text-sm font-medium text-muted">
+                            {Number(video.price).toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })} / c.u.
+                          </span>
                         </div>
                     </td>
                     <td className="text-center">
@@ -149,7 +151,7 @@ const CreatorDashboard = () => {
                                 <>
                                     <span className="text-[10px] text-amber font-bold uppercase tracking-tighter mb-1">Por Liquidar</span>
                                     <div className="text-amber font-bold" style={{ fontSize: '1.4rem', lineHeight: '1', letterSpacing: '-0.02em' }}>
-                                        ${(video.pendingEarnings || 0).toLocaleString()}
+                                        {Number(video.pendingEarnings || 0).toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })}
                                     </div>
                                 </>
                             ) : video.paidEarnings > 0 ? (
@@ -165,11 +167,11 @@ const CreatorDashboard = () => {
                     <td className="text-right">
                        <div className="flex flex-col items-end">
                           <div className="font-bold text-success" style={{ fontSize: '1.1rem' }}>
-                            ${(video.totalEarnings || 0).toLocaleString()}
+                            {Number(video.totalEarnings || 0).toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })}
                           </div>
                           {video.paidEarnings > 0 && (
                             <span className="text-[9px] text-muted uppercase font-medium opacity-60">
-                              Pagado: ${video.paidEarnings.toLocaleString()}
+                              Pagado: {Number(video.paidEarnings).toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })}
                             </span>
                           )}
                        </div>

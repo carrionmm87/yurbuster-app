@@ -83,7 +83,7 @@ const Home = ({ user }) => {
         <div className="container" style={{ position: 'relative', zIndex: 2 }}>
           <h1 className="hero-title">Tu Nuevo Videoclub Digital</h1>
           <p className="hero-subtitle">
-            El videoclub definitivo exclusivo para contenido de adultos. Arrienda estrenos y material exclusivo por 24 horas, o conviértete en creador subiendo tus propios videos para monetizar al instante con Flow.
+            El videoclub definitivo para contenidos digitales exclusivos. Arrienda estrenos y material de tus creadores favoritos por 24 horas, o conviértete en creador subiendo tus propios videos para monetizar al instante en Chile.
           </p>
           <a href="#catalogo" className="btn btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.1rem', borderRadius: '50px' }}>
             Explorar Catálogo <ArrowRight size={20} />
@@ -109,7 +109,7 @@ const Home = ({ user }) => {
                 <Film size={32} />
               </div>
               <h3 className="step-title">2. Arrienda Videos</h3>
-              <p className="step-desc">Navega por el catálogo y arrienda contenido con Flow. Tendrás acceso ininterrumpido a la reproducción por 24 horas.</p>
+              <p className="step-desc">Navega por el catálogo y arrienda contenido con Webpay. Tendrás acceso ininterrumpido a la reproducción por 24 horas.</p>
             </div>
             
             <div className="step-card">
@@ -145,7 +145,13 @@ const Home = ({ user }) => {
                   <img 
                     src={`/uploads/${v.thumbnail}`} 
                     alt="thumbnail" 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'cover',
+                      filter: !isAgeVerified ? 'blur(20px)' : 'none',
+                      transition: 'filter 0.3s ease'
+                    }}
                   />
                 ) : (
                   <PlayCircle size={48} opacity={0.5} />
@@ -171,7 +177,9 @@ const Home = ({ user }) => {
                   <span>Subido por: {v.uploader}</span>
                 </div>
                 <div className="video-actions" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className="video-price">${v.price}</span>
+                  <span className="video-price">
+                    {Number(v.price).toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })}
+                  </span>
                   <button onClick={() => handleSelectVideo(v)} className="btn btn-accent">
                     Arrendar (24h)
                   </button>
