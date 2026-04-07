@@ -4,6 +4,10 @@ node_modules
 dist
 build
 backend/database.sqlite
+backend/prisma/database.sqlite
+backend/prisma/*.sqlite-journal
+backend/prisma/*.sqlite-wal
+backend/prisma/*.sqlite-shm
 backend/videos
 backend/cloudflared.exe
 backend/mock-cloud-storage
