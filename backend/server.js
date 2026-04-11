@@ -426,41 +426,6 @@ app.post('/api/admin/payout/:userId', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Error al procesar el pago' });
   }
 });
-// GET /api/upload/presigned-url - Obtiene URL firmada para subir directo a S3/R2
-app.get('/api/upload/presigned-url', authMiddleware, async (req, res) => {
-  if (req.user.role !== 'creator' && req.user.role !== 'admin' && req.user.username !== 'admin') {
-    return res.status(403).json({ error: 'No tienes permisos para subir videos' });
-  }
-
-  const type = req.query.type || 'video'; // 'video' o 'thumbnail'
-  const contentType = req.query.contentType || (type === 'video' ? 'video/mp4' : 'image/jpeg');
-  const fileId = uuidv4();
-  const folder = type === 'video' ? 'raw' : 'thumbnails';
-  const ext = type === 'video' ? 'mp4' : (contentType.split('/')[1] || 'jpg');
-  const key = `${folder}/${fileId}.${ext}`;
-
-  console.log(`[UPLOAD] Solicitando presigned-url para ${type}: User=${req.user.username}, Key=${key}`);
-
-  try {
-    // USAR STORAGE SERVICE CON FALLBACK
-    const uploadInfo = await storageService.getPresignedUploadUrl(key, contentType);
-    res.json({ 
-      success: true, 
-      url: uploadInfo.url, 
-      method: uploadInfo.method,
-      isCloud: uploadInfo.isCloud,
-      fileId, 
-      key 
-    });
-  } catch (error) {
-    console.error(`[UPLOAD] Error al procesar solicitud de almacenamiento:`, error);
-    res.status(500).json({ 
-      error: `No se pudo preparar el almacenamiento`,
-      details: error.message,
-      isFallback: true
-    });
-  }
-});
 
 // GET /api/storage/status - Informa al frontend si estamos en modo Local o Cloud
 app.get('/api/storage/status', (req, res) => {
@@ -514,7 +479,7 @@ app.post('/api/upload/complete', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/upload/presigned-url - Versión optimizada para formatos flexibles
+// GET /api/upload/presigned-url - Versión definitiva (Soporta todos los formatos)
 app.get('/api/upload/presigned-url', authMiddleware, async (req, res) => {
   try {
     const { type, contentType } = req.query;
@@ -522,14 +487,23 @@ app.get('/api/upload/presigned-url', authMiddleware, async (req, res) => {
     const videoId = uuidv4();
     const folder = isVideo ? 'raw' : 'thumbnails';
     
-    // Detectar extensión correcta del tipo de archivo real
-    const extension = contentType?.split('/')[1] || (isVideo ? 'mp4' : 'jpg');
-    const key = `${folder}/${videoId}.${extension}`;
+    // Mapa de formatos sugerido (Fix Final)
+    const mimeToExt = {
+       'video/mp4': 'mp4',
+       'video/quicktime': 'mov',
+       'video/webm': 'webm',
+       'video/x-msvideo': 'avi',
+       'image/jpeg': 'jpg',
+       'image/png': 'png',
+       'image/gif': 'gif',
+       'image/webp': 'webp'
+    };
+    const ext = mimeToExt[contentType] || (isVideo ? 'mp4' : 'jpg');
+    const key = `${folder}/${videoId}.${ext}`;
     
     const isCloud = storageService.isCloudAvailable;
     if (!isCloud) return res.json({ isCloud: false });
 
-    // Firmar con el Content-Type real (Ej: video/quicktime para .mov)
     const finalType = contentType || (isVideo ? 'video/mp4' : 'image/jpeg');
     const uploadData = await storageService.getPresignedUploadUrl(key, finalType);
     

@@ -94,10 +94,10 @@ class StorageService {
         if (this.isCloudAvailable) {
             try {
                 const { PutObjectCommand } = require('@aws-sdk/client-s3');
+                // Estrategia: Firma Limpia (Sin Content-Type) para evitar desajustes en R2
                 const command = new PutObjectCommand({ 
                     Bucket: this.bucket, 
                     Key: key,
-                    ContentType: contentType,
                     checksumAlgorithm: undefined
                 });
                 const url = await getSignedUrl(this.s3Client, command, { 

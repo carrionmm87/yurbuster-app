@@ -45,8 +45,7 @@ const Upload = () => {
     // 2. Subir directamente a R2 (Sin límite de tiempo para archivos gigantes)
     await axios.put(data.url, fileToUpload, {
       headers: { 
-          'Content-Type': contentType,
-          'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' // ¡CLAVE PARA EVITAR EL 400!
+          'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' // Obligatorio para R2
       },
       timeout: 0, // ¡PACIENCIA INFINITA! No cortar por tiempo
       onUploadProgress: (progressEvent) => {
