@@ -55,7 +55,9 @@ const Register = ({ onLogin }) => {
       onLogin(res.data.user, res.data.token);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Error al registrar');
+      const errorMessage = err.response?.data?.error || 'Error al registrar';
+      setError(errorMessage);
+      alert('⚠️ ATENCIÓN: ' + errorMessage); // Alerta ruidosa ("Pop-up")
     }
   };
 
