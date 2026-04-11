@@ -149,7 +149,7 @@ const Home = ({ user, isAgeVerified }) => {
                       width: '100%', 
                       height: '100%', 
                       objectFit: 'cover',
-                      filter: !isAgeVerified ? 'blur(20px)' : 'none',
+                      filter: 'blur(25px)', // Difuminación permanente para proteger el contenido
                       transition: 'filter 0.3s ease'
                     }}
                   />
