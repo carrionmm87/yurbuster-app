@@ -23,7 +23,9 @@ class StorageService {
                 accessKeyId: this.mode === 'local_mock' ? 'S3RVER' : (process.env.S3_ACCESS_KEY || '').trim(),
                 secretAccessKey: this.mode === 'local_mock' ? 'S3RVER' : (process.env.S3_SECRET_KEY || '').trim(),
             },
-            forcePathStyle: true // ACTIVA EL MODO COMPATIBILIDAD TOTAL
+            forcePathStyle: true,
+            requestChecksumCalculation: 'WHEN_REQUIRED', // Evita agregar x-amz-checksum headers automáticos
+            responseChecksumValidation: 'WHEN_REQUIRED'
         });
 
         this.bucket = process.env.S3_BUCKET;
