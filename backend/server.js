@@ -444,6 +444,62 @@ app.post('/api/admin/payout/:userId', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/admin/kyc-pending - Get creators awaiting verification
+app.get('/api/admin/kyc-pending', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin' && req.user.username !== 'admin') {
+    return res.status(403).json({ error: 'Acceso denegado' });
+  }
+
+  try {
+    const unverifiedUsers = await prisma.user.findMany({
+      where: { role: 'creator', is_verified: false, id_document: { not: null } },
+      select: { id: true, username: true, email: true, created_at: true, id_document: true }
+    });
+
+    // Provide signed URLs to the admin for checking the documents
+    const mapped = await Promise.all(unverifiedUsers.map(async (u) => {
+      let docUrl = null;
+      if (u.id_document) {
+        docUrl = await storageService.getFileUrl(u.id_document);
+      }
+      return { ...u, documentUrl: docUrl };
+    }));
+
+    res.json(mapped);
+  } catch (error) {
+    console.error("Error obteniendo KYC:", error);
+    res.status(500).json({ error: 'Error obteniendo KYC' });
+  }
+});
+
+// POST /api/admin/kyc-verify/:userId
+app.post('/api/admin/kyc-verify/:userId', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin' && req.user.username !== 'admin') {
+    return res.status(403).json({ error: 'Acceso denegado' });
+  }
+
+  const { action } = req.body; // 'approve' or 'reject'
+
+  try {
+    if (action === 'approve') {
+      await prisma.user.update({
+        where: { id: req.params.userId },
+        data: { is_verified: true }
+      });
+      res.json({ success: true, message: 'Usuario aprobado.' });
+    } else if (action === 'reject') {
+      // Eliminate rejected user entirely to prevent db clogging and allow re-registration
+      await prisma.user.delete({
+        where: { id: req.params.userId }
+      });
+      res.json({ success: true, message: 'Usuario rechazado y eliminado.' });
+    }
+  } catch (err) {
+    console.error("KYC Error:", err);
+    res.status(500).json({ error: 'Fallo al verificar KYC.'});
+  }
+});
+
 // GET /api/storage/status - Informa al frontend si estamos en modo Local o Cloud
 app.get('/api/storage/status', (req, res) => {
   const isCloud = storageService.isCloudAvailable;

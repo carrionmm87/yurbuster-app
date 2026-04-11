@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Users, Video, ShoppingCart, DollarSign, PieChart, Activity, ShieldCheck, Briefcase, CheckCircle2, Ticket } from 'lucide-react';
+import { Users, Video, ShoppingCart, DollarSign, PieChart, Activity, ShieldCheck, Briefcase, CheckCircle2, Ticket, FileBadge, Check, X } from 'lucide-react';
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [creatorsEarnings, setCreatorsEarnings] = useState([]);
+  const [pendingKyc, setPendingKyc] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const fetchData = async () => {
     try {
-      const [statsRes, earningsRes] = await Promise.all([
+      const [statsRes, earningsRes, kycRes] = await Promise.all([
         axios.get('/api/admin/stats'),
-        axios.get('/api/admin/creators-earnings')
+        axios.get('/api/admin/creators-earnings'),
+        axios.get('/api/admin/kyc-pending')
       ]);
       setStats(statsRes.data);
       setCreatorsEarnings(earningsRes.data);
+      setPendingKyc(kycRes.data);
     } catch (err) {
       setError('Acceso denegado o error de servidor');
     } finally {
@@ -26,6 +29,17 @@ const AdminDashboard = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleKycAction = async (userId, action) => {
+    if (!window.confirm(`¿Estás seguro que deseas ${action === 'approve' ? 'aprobar' : 'RECHAZAR y ELIMINAR'} a este creador?`)) return;
+    try {
+      await axios.post(`/api/admin/kyc-verify/${userId}`, { action });
+      fetchData(); // Refrescar listas
+    } catch (err) {
+      alert('Error procesando verificación KYC');
+    }
+  };
+
 
   const handlePayout = async (userId) => {
     if (!window.confirm('¿Confirmas que ya has realizado la transferencia bancaria y quieres marcar este saldo como pagado?')) return;
@@ -122,6 +136,68 @@ const AdminDashboard = () => {
           <p className="text-muted text-xs mt-2">Basado en {stats.totalRentals} transacciones</p>
         </div>
       </div>
+
+      {pendingKyc.length > 0 && (
+        <div className="card p-8 mb-8 border-accent/30 bg-accent/5 animate-fade-in shadow-[0_0_20px_rgba(236,72,153,0.15)]">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-bold flex items-center gap-3 text-white">
+              <FileBadge size={24} className="text-accent" /> Solicitudes de Verificación (KYC)
+            </h3>
+            <span className="text-xs font-bold bg-accent text-white px-3 py-1 rounded-full animate-pulse">
+              {pendingKyc.length} PENDIENTES
+            </span>
+          </div>
+          
+          <div className="table-container border-accent/20">
+            <table className="modern-table">
+              <thead>
+                <tr>
+                  <th>Usuario Creador</th>
+                  <th>Fecha Registro</th>
+                  <th className="text-center">Documento</th>
+                  <th className="text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingKyc.map((kyc) => (
+                  <tr key={kyc.id}>
+                    <td>
+                      <div className="font-bold">{kyc.username}</div>
+                      <div className="text-xs text-muted">{kyc.email}</div>
+                    </td>
+                    <td>{new Date(kyc.created_at).toLocaleDateString()}</td>
+                    <td className="text-center">
+                      {kyc.documentUrl ? (
+                        <a href={kyc.documentUrl} target="_blank" rel="noreferrer" className="btn btn-secondary text-xs inline-flex items-center gap-2 px-3 py-1">
+                          <CheckCircle2 size={14} className="text-success" /> Ver Carnet
+                        </a>
+                      ) : (
+                        <span className="text-xs text-red-500">Documento Roto</span>
+                      )}
+                    </td>
+                    <td className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <button 
+                          onClick={() => handleKycAction(kyc.id, 'reject')}
+                          className="btn btn-secondary text-xs hover:bg-red-500/20 hover:text-red-500 hover:border-red-500/50"
+                        >
+                          <X size={14} /> Rechazar
+                        </button>
+                        <button 
+                          onClick={() => handleKycAction(kyc.id, 'approve')}
+                          className="btn btn-accent text-xs"
+                        >
+                          <Check size={14} /> Aprobar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <div className="card p-8 mb-8 border-primary/10">
         <div className="flex items-center justify-between mb-8">
