@@ -514,20 +514,24 @@ app.post('/api/upload/complete', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/upload/presigned-url - Versión optimizada para que el frontend suba directo a R2
+// GET /api/upload/presigned-url - Versión optimizada para formatos flexibles
 app.get('/api/upload/presigned-url', authMiddleware, async (req, res) => {
   try {
     const { type, contentType } = req.query;
     const isVideo = type === 'video';
     const videoId = uuidv4();
     const folder = isVideo ? 'raw' : 'thumbnails';
-    const extension = isVideo ? 'mp4' : (contentType?.split('/')[1] || 'jpg');
+    
+    // Detectar extensión correcta del tipo de archivo real
+    const extension = contentType?.split('/')[1] || (isVideo ? 'mp4' : 'jpg');
     const key = `${folder}/${videoId}.${extension}`;
     
     const isCloud = storageService.isCloudAvailable;
     if (!isCloud) return res.json({ isCloud: false });
 
-    const uploadData = await storageService.getPresignedUploadUrl(key, contentType || (isVideo ? 'video/mp4' : 'image/jpeg'));
+    // Firmar con el Content-Type real (Ej: video/quicktime para .mov)
+    const finalType = contentType || (isVideo ? 'video/mp4' : 'image/jpeg');
+    const uploadData = await storageService.getPresignedUploadUrl(key, finalType);
     
     res.json({ 
       isCloud: true,

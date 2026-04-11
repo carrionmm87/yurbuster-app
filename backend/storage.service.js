@@ -26,6 +26,8 @@ class StorageService {
                 accessKeyId: this.mode === 'local_mock' ? 'S3RVER' : (process.env.S3_ACCESS_KEY || '').trim(),
                 secretAccessKey: this.mode === 'local_mock' ? 'S3RVER' : (process.env.S3_SECRET_KEY || '').trim(),
             },
+            requestChecksumCalculation: "WHEN_REQUIRED",
+            responseChecksumValidation: "WHEN_REQUIRED",
             forcePathStyle: false // Probamos False: estilo Virtual Host (bucket en el nombre de host)
         });
 
