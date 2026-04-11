@@ -48,27 +48,32 @@ class StorageService {
 
     generatePresignedPutUrl(key, expiresIn = 3600) {
         const endpoint = new URL(this.endpoint);
-        const host = endpoint.host;
-        const now = new Date();
+        // Virtual host style: bucket en el hostname
+        const host = `${this.bucket}.${endpoint.host}`;
         
-        const dateStamp = now.toISOString().replace(/[:\-]|\.\d{3}/g, '').substring(0, 8);
-        const amzDate = now.toISOString().replace(/[:\-]|\.\d{3}/g, '').substring(0, 15) + 'Z';
+        // Fecha manual para evitar bugs con regex
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const dateStamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth()+1)}${pad(now.getUTCDate())}`;
+        const amzDate = `${dateStamp}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
+        
         const region = 'auto';
         const service = 's3';
         const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
         const credential = `${this.accessKey}/${credentialScope}`;
+        const encodedCredential = encodeURIComponent(credential);
 
-        const path = `/${this.bucket}/${key}`;
+        const path = `/${key}`;
 
-        const queryParams = new URLSearchParams({
-            'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
-            'X-Amz-Credential': credential,
-            'X-Amz-Date': amzDate,
-            'X-Amz-Expires': String(expiresIn),
-            'X-Amz-SignedHeaders': 'host',
-        });
+        // Parámetros ordenados alfabéticamente (requerido por AWS Sig V4)
+        const canonicalQueryString = [
+            `X-Amz-Algorithm=AWS4-HMAC-SHA256`,
+            `X-Amz-Credential=${encodedCredential}`,
+            `X-Amz-Date=${amzDate}`,
+            `X-Amz-Expires=${expiresIn}`,
+            `X-Amz-SignedHeaders=host`,
+        ].join('&');
 
-        const canonicalQueryString = queryParams.toString();
         const canonicalHeaders = `host:${host}\n`;
         const signedHeaders = 'host';
         const payloadHash = 'UNSIGNED-PAYLOAD';
@@ -89,7 +94,7 @@ class StorageService {
             crypto.createHash('sha256').update(canonicalRequest).digest('hex')
         ].join('\n');
 
-        const hmac = (key, data) => crypto.createHmac('sha256', key).update(data).digest();
+        const hmac = (k, d) => crypto.createHmac('sha256', k).update(d).digest();
         const signingKey = hmac(
             hmac(
                 hmac(
@@ -102,8 +107,8 @@ class StorageService {
         );
         const signature = crypto.createHmac('sha256', signingKey).update(stringToSign).digest('hex');
 
-        const finalUrl = `${this.endpoint}${path}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
-        console.log(`[STORAGE] Presigned URL manual generada para: ${key}`);
+        const finalUrl = `https://${host}${path}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
+        console.log(`[STORAGE] Presigned URL generada para: ${key}`);
         return finalUrl;
     }
 
