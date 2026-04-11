@@ -813,3 +813,29 @@ div[style*="color: rgb(239, 68, 68)"],
 .storage-error-banner {
     display: none !important;
 }
+
+/* FIX UX MÓVIL: Evitar que el Navbar se desborde y asegurar visibilidad de botones (Cerrar Sesión) */
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    padding: 1rem 0.5rem;
+    gap: 0.75rem;
+  }
+  .nav-links {
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  .nav-links > span {
+    font-size: 0.8rem;
+    width: 100%;
+    text-align: center;
+    margin-right: 0 !important;
+    margin-bottom: 0.25rem;
+  }
+  .nav-links .btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+}
