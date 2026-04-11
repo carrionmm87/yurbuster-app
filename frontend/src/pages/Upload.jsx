@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import api from '../api'; // Usamos nuestra instancia configurada con https://api.yurbuster.com
+
+const API_BASE = import.meta?.env?.VITE_API_URL || 'https://api.yurbuster.com';
 
 const Upload = () => {
   const [title, setTitle] = useState('');
@@ -15,16 +16,9 @@ const Upload = () => {
   const [error, setError] = useState('');
   const [shareLink, setShareLink] = useState('');
   const [copied, setCopied] = useState(false);
-  const [storageStatus, setStorageStatus] = useState(null);
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
   const navigate = useNavigate();
-
-  useEffect(() => {
-    api.get('/api/storage/status')
-      .then(res => setStorageStatus(res.data))
-      .catch(err => console.warn("No se pudo obtener el estado:", err));
-  }, []);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareLink);
@@ -32,24 +26,34 @@ const Upload = () => {
     setTimeout(() => setCopied(false), 3000);
   };
 
-  const uploadFileDirect = async (fileToUpload, type) => {
-    const contentType = fileToUpload.type || (type === 'video' ? 'video/mp4' : 'image/jpeg');
-    
-    // 1. Pedir URL firmada
-    const { data } = await api.get('/api/upload/presigned-url', {
-      params: { type, contentType }
+  // Pide una presigned URL al backend y sube el archivo DIRECTAMENTE a R2
+  const uploadFileDirectToR2 = async (file, type) => {
+    const token = localStorage.getItem('token');
+    const contentType = file.type || (type === 'video' ? 'video/mp4' : 'image/jpeg');
+
+    // 1. Pedir la presigned URL al backend
+    const { data } = await axios.get(`${API_BASE}/api/upload/presigned-url`, {
+      params: { type, contentType },
+      headers: { Authorization: `Bearer ${token}` }
     });
 
-    if (!data.isCloud) throw new Error('Servicio Cloud no disponible');
+    if (!data.isCloud) {
+      throw new Error('El almacenamiento cloud no está disponible. Intenta más tarde.');
+    }
 
-    // 2. Subir directamente a R2 (Sin cabeceras extras para evitar errores de firma)
-    await axios.put(data.url, fileToUpload, {
-      timeout: 0, 
+    // 2. Subir DIRECTAMENTE a R2 con la presigned URL (sin pasar por el backend)
+    // IMPORTANTE: No enviar Content-Type header — la firma solo incluye 'host'
+    await axios.put(data.url, file, {
+      headers: { 'Content-Type': '' },
+      transformRequest: [(data, headers) => {
+        delete headers['Content-Type'];
+        return data;
+      }],
       onUploadProgress: (progressEvent) => {
-        if (type === 'video') {
-            const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-            setProgress(pct);
-            setProgressLabel(`Subiendo video a Cloudflare R2... ${pct}%`);
+        if (type === 'video' && progressEvent.total) {
+          const pct = Math.round((progressEvent.loaded / progressEvent.total) * 85);
+          setProgress(pct);
+          setProgressLabel(`Subiendo video... ${pct}%`);
         }
       }
     });
@@ -60,107 +64,198 @@ const Upload = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) return setError('Selecciona un video');
-    if (!isOwner || !hasConsent) return setError('Debes confirmar los términos legales');
-    
+    if (!isOwner) return setError('Debes confirmar que eres el propietario legal del video');
+    if (!hasConsent) return setError('Debes confirmar el consentimiento de terceros (si aplica)');
+
     setLoading(true);
     setError('');
     setProgress(0);
-    setProgressLabel('Solicitando acceso a la nube...');
 
     try {
-      // PROCESO 1: Subir Video DIRECTO
-      const { fileId, key: videoKey } = await uploadFileDirect(file, 'video');
-      
-      // PROCESO 2: Subir Miniatura (opcional) DIRECTO
+      const token = localStorage.getItem('token');
+
+      // PASO 1: Subir video directo a R2
+      setProgressLabel('Preparando subida del video...');
+      const { fileId: videoId, key: videoKey } = await uploadFileDirectToR2(file, 'video');
+
+      // PASO 2: Subir thumbnail directo a R2 (si existe)
       let thumbnailKey = '';
       if (thumbnail) {
-          setProgressLabel('Subiendo miniatura...');
-          const thumbUpload = await uploadFileDirect(thumbnail, 'thumbnail');
-          thumbnailKey = thumbUpload.key;
+        setProgress(87);
+        setProgressLabel('Subiendo miniatura...');
+        const { key } = await uploadFileDirectToR2(thumbnail, 'thumbnail');
+        thumbnailKey = key;
       }
 
-      // PROCESO 3: Confirmar en Backend
-      setProgressLabel('Publicando video...');
-      const res = await api.post('/api/upload/confirm', {
-          videoId: fileId,
-          title,
-          description,
-          price,
-          videoKey,
-          thumbnailKey
+      // PASO 3: Registrar el video en la base de datos
+      setProgress(95);
+      setProgressLabel('Registrando video...');
+      await axios.post(`${API_BASE}/api/upload/confirm`, {
+        videoId,
+        title,
+        description,
+        price,
+        videoKey,
+        thumbnailKey
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
-      
-      setShareLink(`${window.location.origin}/?video=${fileId}`);
+
+      setProgress(100);
+      setProgressLabel('¡Listo!');
+      const link = `${window.location.origin}/?video=${videoId}`;
+      setShareLink(link);
+
     } catch (err) {
-      console.error("[UPLOAD] Error:", err);
-      setError(`Fallo: ${err.response?.data?.error || err.message}`);
+      console.error('[UPLOAD] Error:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Error inesperado durante la subida';
+      setError(`Error de conexión con Almacenamiento Cloud: ${errorMsg}`);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- Renderizado Visual ---
   return (
-    <div className="container animate-fade-in py-8">
-      <div className="auth-card mx-auto" style={{ maxWidth: '600px' }}>
-        <h2 className="auth-title text-3xl font-bold mb-6">Subir Nuevo Video (Modo Global)</h2>
-        
-        {error && <div className="alert-error mb-4">{error}</div>}
-        
+    <div className="container animate-fade-in">
+      <div className="auth-card" style={{ maxWidth: '550px' }}>
+        <h2 className="auth-title">Subir Nuevo Video</h2>
+
+        {error && (
+          <div className="upload-error-display" style={{ color: '#ef4444', marginBottom: '1.5rem', textAlign: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '0.75rem', borderRadius: '8px' }}>
+            {error}
+          </div>
+        )}
+
         {shareLink ? (
-          <div className="success-screen p-6 bg-slate-800 rounded-lg text-center">
-             <h3 className="text-emerald-400 text-xl mb-4">¡Publicado con éxito!</h3>
-             <input type="text" readOnly value={shareLink} className="form-control mb-4 text-center" />
-             <button onClick={handleCopyLink} className="btn btn-primary w-full mb-2">
-                 {copied ? '¡Copiado!' : 'Copiar Enlace'}
-             </button>
-             <button onClick={() => navigate('/')} className="btn btn-outline w-full">Volver al Inicio</button>
+          <div className="text-center">
+            <div style={{ padding: '1rem', backgroundColor: '#ecfdf5', color: '#065f46', borderRadius: '4px', marginBottom: '1rem' }}>
+              ¡Video subido exitosamente!
+            </div>
+            <p className="text-muted" style={{ marginBottom: '1rem' }}>Copia el siguiente enlace para promocionar tu video:</p>
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              <input type="text" readOnly value={shareLink} className="form-control" />
+              <button type="button" onClick={handleCopyLink} className="btn btn-primary">
+                {copied ? '¡Copiado!' : 'Copiar'}
+              </button>
+            </div>
+            <button onClick={() => navigate('/')} className="btn btn-outline" style={{ width: '100%' }}>
+              Ir al Catálogo
+            </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="form-label">Título</label>
-              <input type="text" className="form-control" required value={title} onChange={e => setTitle(e.target.value)} />
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label">Título del Video</label>
+              <input
+                type="text"
+                className="form-control"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Ej: Escena exclusiva en el balcón"
+                required
+              />
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-               <div>
-                  <label className="form-label">Video (.mp4)</label>
-                  <input type="file" accept="video/*" className="form-control" required onChange={e => setFile(e.target.files[0])} />
-               </div>
-               <div>
-                  <label className="form-label">Miniatura (.jpg/.png)</label>
-                  <input type="file" accept="image/*" className="form-control" onChange={e => setThumbnail(e.target.files[0])} />
-               </div>
+            <div className="form-group">
+              <label className="form-label">Descripción Corta</label>
+              <textarea
+                className="form-control"
+                rows="3"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Cuéntale a tus fans de qué trata este video..."
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Precio (CLP $)</label>
+              <input
+                type="number"
+                step="1"
+                min="1"
+                className="form-control"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="Ej: 5000 (Sin puntos)"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="form-group">
+                <label className="form-label">Archivo de Video (.mp4)</label>
+                <input
+                  type="file"
+                  accept="video/*"
+                  className="form-control"
+                  onChange={(e) => setFile(e.target.files[0])}
+                  required
+                  style={{ padding: '0.4rem' }}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Miniatura (Preview)</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="form-control"
+                  onChange={(e) => setThumbnail(e.target.files[0])}
+                  style={{ padding: '0.4rem' }}
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="form-label text-emerald-400">Precio (CLP $)</label>
-              <input type="number" className="form-control" required value={price} onChange={e => setPrice(e.target.value)} placeholder="Ej: 5000" />
+            <div className="card p-4 mb-6" style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)' }}>
+              <h4 style={{ fontSize: '0.9rem', marginBottom: '1rem', color: 'var(--text-main)' }}>Consentimiento Legal</h4>
+              <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem', alignItems: 'flex-start' }}>
+                <input
+                  type="checkbox"
+                  id="isOwner"
+                  checked={isOwner}
+                  onChange={(e) => setIsOwner(e.target.checked)}
+                  style={{ marginTop: '0.25rem' }}
+                />
+                <label htmlFor="isOwner" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  Confirmo que soy el propietario legal de este video y tengo todos los derechos de autor para su distribución.
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+                <input
+                  type="checkbox"
+                  id="hasConsent"
+                  checked={hasConsent}
+                  onChange={(e) => setHasConsent(e.target.checked)}
+                  style={{ marginTop: '0.25rem' }}
+                />
+                <label htmlFor="hasConsent" style={{ fontSize: '0.85rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  Aseguro contar con el consentimiento expreso y verificable de cualquier otra persona que aparezca en el video.
+                </label>
+              </div>
             </div>
 
+            {/* Barra de progreso (solo visible al subir) */}
             {loading && (
-              <div className="progress-container mb-6">
-                 <div className="text-sm mb-1 text-blue-400 font-medium">{progressLabel}</div>
-                 <div className="w-full bg-slate-700 rounded-full h-2.5">
-                    <div className="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }}></div>
-                 </div>
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                  <span>{progressLabel}</span>
+                  <span>{progress}%</span>
+                </div>
+                <div style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '999px', height: '8px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${progress}%`,
+                    backgroundColor: '#a855f7',
+                    borderRadius: '999px',
+                    transition: 'width 0.3s ease'
+                  }} />
+                </div>
               </div>
             )}
 
-            <div className="legal-box p-4 bg-slate-900/50 border border-slate-700 rounded-lg text-xs space-y-3">
-               <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={isOwner} onChange={e => setIsOwner(e.target.checked)} />
-                  <span>Soy el propietario legal del video y tengo derechos totales.</span>
-               </label>
-               <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={hasConsent} onChange={e => setHasConsent(e.target.checked)} />
-                  <span>Cuento con el consentimiento de todas las partes involucradas.</span>
-               </label>
-            </div>
-
-            <button type="submit" className="btn btn-primary w-full py-3" disabled={loading}>
-              {loading ? 'Subiendo archivo pesado...' : 'Publicar Ahora'}
+            <button
+              type="submit"
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '1rem' }}
+              disabled={loading}
+            >
+              {loading ? progressLabel || 'Subiendo...' : 'Publicar Video'}
             </button>
           </form>
         )}
