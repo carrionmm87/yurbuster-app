@@ -69,10 +69,16 @@ class StorageService {
                     Key: key
                 });
                 // FIRMA ULTRA-LIMPIA: Solo el host. Evita el Error 400.
-                const url = await getSignedUrl(this.s3Client, command, { 
+                const rawUrl = await getSignedUrl(this.s3Client, command, { 
                     expiresIn: 3600,
                     signableHeaders: new Set(['host'])
                 });
+                // Eliminar parámetros de checksum que causa 400 en R2
+                const urlObj = new URL(rawUrl);
+                urlObj.searchParams.delete('x-amz-sdk-checksum-algorithm');
+                urlObj.searchParams.delete('x-amz-checksum-algorithm');
+                const url = urlObj.toString();
+                console.log(`[STORAGE] Presigned URL generada (limpia): ${url.substring(0, 80)}...`);
                 return { url, method: 'PUT', isCloud: true };
             } catch (err) {
                 console.error("[STORAGE] Error generando URL de subida:", err.message);
