@@ -514,7 +514,56 @@ app.post('/api/upload/complete', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/upload/proxy - Proxy seguro de subida a Cloudflare R2
+// GET /api/upload/presigned-url - Versión optimizada para que el frontend suba directo a R2
+app.get('/api/upload/presigned-url', authMiddleware, async (req, res) => {
+  try {
+    const { type, contentType } = req.query;
+    const isVideo = type === 'video';
+    const videoId = uuidv4();
+    const folder = isVideo ? 'raw' : 'thumbnails';
+    const extension = isVideo ? 'mp4' : (contentType?.split('/')[1] || 'jpg');
+    const key = `${folder}/${videoId}.${extension}`;
+    
+    const isCloud = storageService.isCloudAvailable;
+    if (!isCloud) return res.json({ isCloud: false });
+
+    const uploadData = await storageService.getPresignedUploadUrl(key, contentType || (isVideo ? 'video/mp4' : 'image/jpeg'));
+    
+    res.json({ 
+      isCloud: true,
+      url: uploadData.url,
+      fileId: videoId,
+      key: key
+    });
+  } catch (error) {
+    console.error("Error en presigned-url:", error);
+    res.status(500).json({ error: 'Fallo al preparar subida' });
+  }
+});
+
+// POST /api/upload/confirm - Registra el video después de la subida directa
+app.post('/api/upload/confirm', authMiddleware, async (req, res) => {
+  try {
+    const { videoId, title, price, description, videoKey, thumbnailKey } = req.body;
+    
+    await prisma.video.create({
+      data: {
+        id: videoId,
+        title,
+        price: parseFloat(price),
+        filename: videoKey,
+        thumbnail: thumbnailKey || '',
+        description: description || '',
+        uploader_id: req.user.id
+      }
+    });
+
+    res.json({ success: true, videoId });
+  } catch (error) {
+    console.error("Error confirmando subida:", error);
+    res.status(500).json({ error: 'Error al registrar video final' });
+  }
+});
 app.post('/api/upload/proxy', authMiddleware, uploadFields, async (req, res) => {
   if (req.user.role !== 'creator' && req.user.role !== 'admin' && req.user.username !== 'admin') {
     return res.status(403).json({ error: 'No tienes permisos para subir videos' });
