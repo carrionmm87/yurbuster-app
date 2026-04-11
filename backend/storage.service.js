@@ -97,9 +97,13 @@ class StorageService {
                 const command = new PutObjectCommand({ 
                     Bucket: this.bucket, 
                     Key: key,
-                    ContentType: contentType
+                    ContentType: contentType,
+                    checksumAlgorithm: undefined
                 });
-                const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
+                const url = await getSignedUrl(this.s3Client, command, { 
+                    expiresIn: 3600,
+                    signableHeaders: new Set(['host', 'x-amz-content-sha256'])
+                });
                 return { url, method: 'PUT', isCloud: true };
             } catch (err) {
                 console.error("[STORAGE] Error generando presigned upload URL:", err.message);
