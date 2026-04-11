@@ -79,7 +79,7 @@ const authMiddleware = (req, res, next) => {
 };
 
 // POST /api/auth/register
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', upload.single('id_document'), async (req, res) => {
   const { username, password, role, email, phone } = req.body;
   
   if (!username || !password || !email || !phone) {
@@ -106,17 +106,32 @@ app.post('/api/auth/register', async (req, res) => {
 
     if (existingUser) {
       if (existingUser.username === username) {
-        console.warn(`[REGISTER] El nombre de usuario '${username}' ya está en uso.`);
         return res.status(400).json({ error: 'El nombre de usuario ya está en uso' });
       }
       if (existingUser.email === email) {
-        console.warn(`[REGISTER] El email '${email}' ya está registrado.`);
         return res.status(400).json({ error: 'El email ya está registrado' });
       }
       if (existingUser.phone === phone) {
-        console.warn(`[REGISTER] El teléfono '${phone}' ya está registrado.`);
         return res.status(400).json({ error: 'El teléfono ya está registrado' });
       }
+    }
+
+    // Handle KYD / ID Document if provided
+    let idDocumentUrl = null;
+    if (req.file) {
+      const ext = req.file.mimetype.split('/')[1] || 'jpg';
+      const key = `kyc/${Date.now()}-${username}.${ext}`;
+      const isCloud = await storageService.checkConnectivity();
+      if (isCloud) {
+        await storageService.uploadFileToCloud(req.file.path, key, req.file.mimetype);
+        idDocumentUrl = key;
+        const fs = require('fs');
+        fs.unlinkSync(req.file.path); // Delete local temp file
+      } else {
+        idDocumentUrl = req.file.filename; // fallback local
+      }
+    } else if (role === 'creator') {
+        return res.status(400).json({ error: 'Debes subir una foto de tu carnet para ser Creador' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -135,7 +150,9 @@ app.post('/api/auth/register', async (req, res) => {
         account_number: account_number || null,
         payout_email: payout_email || null,
         bank_holder_name: bank_holder_name || null,
-        bank_holder_rut: bank_holder_rut || null
+        bank_holder_rut: bank_holder_rut || null,
+        id_document: idDocumentUrl,
+        is_verified: false // Manually verified later
       }
     });
 

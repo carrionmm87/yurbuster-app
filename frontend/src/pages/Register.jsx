@@ -16,6 +16,7 @@ const Register = ({ onLogin }) => {
   const [payoutEmail, setPayoutEmail] = useState('');
   const [bankHolderName, setBankHolderName] = useState('');
   const [bankRut, setBankRut] = useState('');
+  const [idDocument, setIdDocument] = useState(null);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
@@ -41,16 +42,32 @@ const Register = ({ onLogin }) => {
     }
 
     try {
-      const registerData = { 
-        username, email, phone, password, role,
-        bank_name: role === 'creator' ? bankName : null,
-        account_type: role === 'creator' ? accountType : null,
-        account_number: role === 'creator' ? accountNumber : null,
-        payout_email: role === 'creator' ? payoutEmail : null,
-        bank_holder_name: role === 'creator' ? bankHolderName : null,
-        bank_holder_rut: role === 'creator' ? bankRut : null
-      };
-      await axios.post('/api/auth/register', registerData);
+      const formData = new FormData();
+      formData.append('username', username);
+      formData.append('email', email);
+      formData.append('phone', phone);
+      formData.append('password', password);
+      formData.append('role', role);
+      
+      if (role === 'creator') {
+        formData.append('bank_name', bankName);
+        formData.append('account_type', accountType);
+        formData.append('account_number', accountNumber);
+        formData.append('payout_email', payoutEmail);
+        formData.append('bank_holder_name', bankHolderName);
+        formData.append('bank_holder_rut', bankRut);
+        if (idDocument) {
+          formData.append('id_document', idDocument);
+        } else {
+          setError('Debes subir una foto de tu Carnet de Identidad o Pasaporte para ser creador.');
+          return;
+        }
+      }
+
+      await axios.post('/api/auth/register', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
       const res = await axios.post('/api/auth/login', { username, password });
       onLogin(res.data.user, res.data.token);
       navigate('/');
@@ -151,7 +168,23 @@ const Register = ({ onLogin }) => {
 
           {role === 'creator' && (
             <div className="animate-fade-in" style={{ marginTop: '1.5rem', padding: '1.5rem', backgroundColor: 'rgba(99, 102, 241, 0.05)', borderRadius: '12px', border: '1px dashed var(--primary)' }}>
-              <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--primary)' }}>Información para Pagos (Chile)</h3>
+              <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--primary)' }}>Verificación e Información para Pagos</h3>
+              
+              <div className="form-group" style={{ marginBottom: '2rem' }}>
+                <label className="form-label">Verificación de Identidad (+18)</label>
+                <input 
+                  type="file" 
+                  accept="image/*,.pdf"
+                  className="form-control"
+                  style={{ padding: '0.5rem' }}
+                  onChange={(e) => setIdDocument(e.target.files[0])}
+                  required={role === 'creator'}
+                />
+                <p style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '0.5rem' }}>
+                  * Sube foto frontal de tu Cédula de Identidad o Pasaporte para verificar mayoría de edad.
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="form-group">
                   <label className="form-label">Banco</label>

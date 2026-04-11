@@ -22,6 +22,8 @@ model User {
   payout_email     String?
   bank_holder_name String?
   bank_holder_rut  String?
+  id_document      String?  // Ruta al documento de identidad (R2)
+  is_verified      Boolean  @default(false) // Estado de KYC del Creador
   created_at       DateTime @default(now())
   rentals          Rental[]
   videos           Video[]

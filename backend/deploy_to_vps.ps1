@@ -19,6 +19,7 @@ cd /var/www/yurbuster-app
 # Ajustar PUBLIC_URL en el servidor a la nueva API
 sed -i 's|PUBLIC_URL=.*|PUBLIC_URL=https://api.yurbuster.com|' .env
 npm install --omit=dev
+npx prisma db push --accept-data-loss
 pm2 delete yurbuster-api 2>/dev/null
 pm2 start server.js --name 'yurbuster-api'
 pm2 save
