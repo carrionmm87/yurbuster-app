@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PlayCircle, UserPlus, Film, UploadCloud, ArrowRight } from 'lucide-react';
 import PaymentModal from '../components/PaymentModal';
 
-const Home = ({ user }) => {
+const Home = ({ user, isAgeVerified }) => {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState(null);
@@ -141,9 +141,9 @@ const Home = ({ user }) => {
           {videos.map(v => (
             <div key={v.id} className="video-card">
               <div className="video-thumbnail" style={{ position: 'relative', overflow: 'hidden' }}>
-                {v.thumbnail ? (
+                {v.thumbnailUrl ? (
                   <img 
-                    src={`/uploads/${v.thumbnail}`} 
+                    src={v.thumbnailUrl} 
                     alt="thumbnail" 
                     style={{ 
                       width: '100%', 

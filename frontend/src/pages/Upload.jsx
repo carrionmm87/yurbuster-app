@@ -14,7 +14,15 @@ const Upload = () => {
   const [error, setError] = useState('');
   const [shareLink, setShareLink] = useState('');
   const [copied, setCopied] = useState(false);
+  const [storageStatus, setStorageStatus] = useState(null);
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    // Verificar el estado del almacenamiento al cargar
+    axios.get('/api/storage/status')
+      .then(res => setStorageStatus(res.data))
+      .catch(err => console.warn("No se pudo obtener el estado del almacenamiento:", err));
+  }, []);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareLink);
@@ -29,38 +37,33 @@ const Upload = () => {
     if (!hasConsent) return setError('Debes confirmar el consentimiento de terceros (si aplica)');
     
     setLoading(true);
+    setError('');
     try {
-      // 1. Get Presigned URL
-      const contentType = file.type || 'video/mp4';
-      const presignedRes = await axios.get(`/api/upload/presigned-url?contentType=${encodeURIComponent(contentType)}`);
-      const { url, videoId } = presignedRes.data;
-
-      // 2. Upload file directly to S3/R2 using the full presigned URL
-      const uploadResponse = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': file.type || 'video/mp4'
-        },
-        body: file
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('El Storage Cloud rechazó la subida');
+      console.log("[UPLOAD] Iniciando subida proxy segura...");
+      
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('price', price);
+      formData.append('video', file);
+      if (thumbnail) {
+        formData.append('thumbnail', thumbnail);
       }
 
-      // 3. Confirm upload with Backend
-      const completeRes = await axios.post('/api/upload/complete', {
-         videoId,
-         title,
-         price,
-         description
+      const res = await axios.post('/api/upload/proxy', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
       });
       
+      const videoId = res.data.videoId;
       const link = `${window.location.origin}/?video=${videoId}`;
       setShareLink(link);
     } catch (err) {
-      console.error("Error al subir video:", err);
-      setError(err.response?.data?.error || 'Error de conexión con Almacenamiento Cloud');
+      console.error("[UPLOAD] Error:", err);
+      // Extraer mensaje del backend si existe
+      const errorMsg = err.response?.data?.error || err.message || 'Error inesperado durante la subida';
+      setError(`Ocurrió un problema: ${errorMsg}`);
     } finally {
       setLoading(false);
     }
@@ -70,7 +73,28 @@ const Upload = () => {
     <div className="container animate-fade-in">
       <div className="auth-card" style={{ maxWidth: '550px' }}>
         <h2 className="auth-title">Subir Nuevo Video</h2>
-        {error && <div style={{ color: '#ef4444', marginBottom: '1.5rem', textAlign: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '0.75rem', borderRadius: '8px' }}>{error}</div>}
+        
+        {/* Banner de Estado de Almacenamiento */}
+        {storageStatus && !storageStatus.isCloud && (
+          <div style={{ 
+            backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+            color: '#3b82f6', 
+            padding: '0.75rem', 
+            borderRadius: '8px', 
+            marginBottom: '1.5rem',
+            fontSize: '0.85rem',
+            border: '1px solid rgba(59, 130, 246, 0.2)',
+            textAlign: 'center'
+          }}>
+            ℹ️ {storageStatus.message}
+          </div>
+        )}
+
+        {error && (
+          <div className="upload-error-display" style={{ color: '#ef4444', marginBottom: '1.5rem', textAlign: 'center', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '0.75rem', borderRadius: '8px' }}>
+            {error}
+          </div>
+        )}
         
         {shareLink ? (
           <div className="text-center">

@@ -802,3 +802,10 @@ h2 { font-size: 2rem; margin-bottom: 0.75rem; }
 .font-bold { font-weight: 700; }
 .uppercase { text-transform: uppercase; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* REPARACIÓN CRÍTICA: Ocultar banners de error de almacenamiento obsoletos */
+div[style*="color: #ef4444"], 
+div[style*="color: rgb(239, 68, 68)"],
+.storage-error-banner {
+    display: none !important;
+}

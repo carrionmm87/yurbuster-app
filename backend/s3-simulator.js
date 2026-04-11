@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 const bucketDir = path.join(__dirname, 'mock-cloud-storage');
-const BUCKET_NAME = 'yurbuster-videos-local';
+const BUCKET_NAME = 'video-rental-app';
 
 if (!fs.existsSync(bucketDir)) {
   fs.mkdirSync(bucketDir);
@@ -19,6 +19,8 @@ const instance = new S3rver({
   address: 'localhost',
   directory: bucketDir,
   silent: false,
+  accessKey: 'S3RVER',
+  secretKey: 'S3RVER',
   configureBuckets: [
     {
       name: BUCKET_NAME,

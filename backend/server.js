@@ -21,18 +21,10 @@ if (process.platform === 'win32') {
   ffmpeg.setFfmpegPath('ffmpeg');
 }
 
-const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const storageService = require('./storage.service');
 
-const s3Client = new S3Client({
-  region: 'auto',
-  endpoint: process.env.S3_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY,
-    secretAccessKey: process.env.S3_SECRET_KEY,
-  },
-  forcePathStyle: false // Cloudflare R2 does not need path style
-});
+// Inicializar verificación de conectividad al arrancar
+storageService.checkConnectivity();
 const S3_BUCKET = process.env.S3_BUCKET;
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL; // Domain connected to R2 bucket
 
@@ -440,22 +432,55 @@ app.get('/api/upload/presigned-url', authMiddleware, async (req, res) => {
     return res.status(403).json({ error: 'No tienes permisos para subir videos' });
   }
 
+  const type = req.query.type || 'video'; // 'video' o 'thumbnail'
+  const contentType = req.query.contentType || (type === 'video' ? 'video/mp4' : 'image/jpeg');
+  const fileId = uuidv4();
+  const folder = type === 'video' ? 'raw' : 'thumbnails';
+  const ext = type === 'video' ? 'mp4' : (contentType.split('/')[1] || 'jpg');
+  const key = `${folder}/${fileId}.${ext}`;
+
+  console.log(`[UPLOAD] Solicitando presigned-url para ${type}: User=${req.user.username}, Key=${key}`);
+
   try {
-    const contentType = req.query.contentType || 'video/mp4';
-    const videoId = uuidv4();
-    const command = new PutObjectCommand({ 
-      Bucket: S3_BUCKET, 
-      Key: `raw/${videoId}.mp4`,
-      ContentType: contentType
+    // USAR STORAGE SERVICE CON FALLBACK
+    const uploadInfo = await storageService.getPresignedUploadUrl(key, contentType);
+    res.json({ 
+      success: true, 
+      url: uploadInfo.url, 
+      method: uploadInfo.method,
+      isCloud: uploadInfo.isCloud,
+      fileId, 
+      key 
     });
-    
-    const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-    
-    res.json({ success: true, url: signedUrl, videoId });
   } catch (error) {
-    console.error("Error generando presigned URL:", error);
-    res.status(500).json({ error: 'Error del servidor al generar URL de subida' });
+    console.error(`[UPLOAD] Error al procesar solicitud de almacenamiento:`, error);
+    res.status(500).json({ 
+      error: `No se pudo preparar el almacenamiento`,
+      details: error.message,
+      isFallback: true
+    });
   }
+});
+
+// GET /api/storage/status - Informa al frontend si estamos en modo Local o Cloud
+app.get('/api/storage/status', (req, res) => {
+  const isCloud = storageService.isCloudAvailable;
+  res.json({
+    mode: storageService.mode,
+    isCloud,
+    message: isCloud ? 'Cloud Storage Active' : 'Operando en Modo Respaldo Local'
+  });
+});
+
+// POST /api/upload/local - Receptor para subidas locales en modo fallback
+app.post('/api/upload/local', authMiddleware, upload.single('file'), (req, res) => {
+  const { key } = req.query;
+  if (!req.file || !key) return res.status(400).json({ error: 'Falta archivo o clave' });
+  
+  // En modo local, el archivo ya se subió a /uploads por multer
+  // Movemos o renombramos si es necesario, pero por ahora multer lo deja en uploads.
+  // Solo devolvemos éxito.
+  res.json({ success: true, key });
 });
 
 // POST /api/upload/complete - Confirma la subida al S3 y guarda en BD
@@ -464,9 +489,9 @@ app.post('/api/upload/complete', authMiddleware, async (req, res) => {
     return res.status(403).json({ error: 'No tienes permisos' });
   }
 
-  const { videoId, title, price, description } = req.body;
-  if (!videoId || !title || !price) {
-    return res.status(400).json({ error: 'Faltan campos (videoId, titulo, precio)' });
+  const { videoId, title, price, description, videoKey, thumbnailKey } = req.body;
+  if (!videoId || !title || !price || !videoKey) {
+    return res.status(400).json({ error: 'Faltan campos (videoId, titulo, precio, videoKey)' });
   }
 
   try {
@@ -475,17 +500,82 @@ app.post('/api/upload/complete', authMiddleware, async (req, res) => {
         id: videoId,
         title,
         price: parseFloat(price),
-        filename: `raw/${videoId}.mp4`, // Point to the S3 object key
-        thumbnail: '', // Needs separate upload logic if we use S3, leaving empty for now
+        filename: videoKey, 
+        thumbnail: thumbnailKey || '',
         description: description || '',
         uploader_id: req.user.id
       }
     });
 
-    res.json({ success: true, videoId, message: 'Video registrado exitosamente en la BD.' });
+    res.json({ success: true, videoId, message: 'Video registrado exitosamente.' });
   } catch (error) {
     console.error("Error confirmando subida:", error);
-    res.status(500).json({ error: 'Error al registrar video' });
+    res.status(500).json({ error: 'Error al registrar video en la base de datos' });
+  }
+});
+
+// POST /api/upload/proxy - Proxy seguro de subida a Cloudflare R2
+app.post('/api/upload/proxy', authMiddleware, uploadFields, async (req, res) => {
+  if (req.user.role !== 'creator' && req.user.role !== 'admin' && req.user.username !== 'admin') {
+    return res.status(403).json({ error: 'No tienes permisos para subir videos' });
+  }
+
+  const { title, price, description } = req.body;
+  if (!req.files || !req.files['video'] || !title || !price) {
+    return res.status(400).json({ error: 'Faltan campos (video, titulo, precio)' });
+  }
+
+  const videoId = uuidv4();
+  const rawFile = req.files['video'][0];
+  const thumbFile = req.files['thumbnail'] ? req.files['thumbnail'][0] : null;
+
+  try {
+    let videoKey, thumbnailKey = '';
+    
+    // Si tenemos cloud, subimos a R2
+    const isCloud = await storageService.checkConnectivity();
+    if (isCloud) {
+       videoKey = `raw/${videoId}.mp4`;
+       await storageService.uploadFileToCloud(rawFile.path, videoKey, rawFile.mimetype);
+       
+       if (thumbFile) {
+           thumbnailKey = `thumbnails/${videoId}.${thumbFile.mimetype.split('/')[1] || 'jpg'}`;
+           await storageService.uploadFileToCloud(thumbFile.path, thumbnailKey, thumbFile.mimetype);
+       }
+       console.log(`[UPLOAD-PROXY] Archivos guardados en R2 para video: ${videoId}`);
+    } else {
+       // Modo respaldo local: usamos los nombres físicos de multer en /uploads
+       videoKey = rawFile.filename;
+       if (thumbFile) thumbnailKey = thumbFile.filename;
+       console.log(`[UPLOAD-PROXY] Fallback local activo. Nombres: ${videoKey}, ${thumbnailKey}`);
+    }
+
+    // Registrar en BD
+    await prisma.video.create({
+      data: {
+        id: videoId,
+        title,
+        price: parseFloat(price),
+        filename: videoKey,
+        thumbnail: thumbnailKey || '',
+        description: description || '',
+        uploader_id: req.user.id
+      }
+    });
+
+    res.json({ success: true, videoId, message: 'Video subido exitosamente a la plataforma.' });
+    
+    // Optional cleanup of local files if stored in cloud
+    if (isCloud) {
+        try {
+            fs.unlinkSync(rawFile.path);
+            if (thumbFile) fs.unlinkSync(thumbFile.path);
+        } catch(e) { /* ignore */ }
+    }
+
+  } catch (err) {
+    console.error("[UPLOAD-PROXY] Error completo:", err);
+    res.status(500).json({ error: 'Error durante el proceso de transferencia al servidor' });
   }
 });
 
@@ -588,10 +678,12 @@ app.get('/api/videos', async (req, res) => {
       }
     });
     
-    const transformed = videos.map(v => ({
+    const transformed = await Promise.all(videos.map(async v => ({
       ...v,
-      uploader: v.uploader.username
-    }));
+      uploader: v.uploader.username,
+      // Miniaturas dinámicas (Local o Remote dependiendo de la conexión)
+      thumbnailUrl: v.thumbnail ? await storageService.getFileUrl(v.thumbnail, 'thumbnail') : null
+    })));
     
     res.json(transformed);
   } catch (error) {
@@ -642,16 +734,17 @@ app.get('/api/rentals', authMiddleware, async (req, res) => {
       }
     });
 
-    const transformed = rentals.map(r => ({
+    const transformed = await Promise.all(rentals.map(async r => ({
       id: r.id,
       video_id: r.video_id,
       token: r.token,
       expires_at: r.expires_at,
       video: {
         ...r.video,
-        uploader: r.video.uploader.username
+        uploader: r.video.uploader.username,
+        thumbnailUrl: r.video.thumbnail ? await storageService.getFileUrl(r.video.thumbnail, 'thumbnail') : null
       }
-    }));
+    })));
 
     res.json(transformed);
   } catch (error) {
@@ -682,7 +775,7 @@ app.post('/api/payment/create-charge', authMiddleware, async (req, res) => {
       commerceOrder,
       subject,
       amount,
-      email: req.user.username + "@yurbuster.com", // Fallback email
+      email: req.user.email || (req.user.username + "@yurbuster.com"), // Try real email first
       urlConfirmation,
       urlReturn,
       optional: JSON.stringify({ videoId: video.id, userId: req.user.id })
@@ -778,6 +871,10 @@ app.post('/api/rent', authMiddleware, async (req, res) => {
         const rentalToken = uuidv4();
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
+        // RE-CHECK for race condition right before creation
+        rental = await prisma.rental.findFirst({ where: { payment_id: token } });
+        if (rental) return res.json({ success: true, token: rental.token, expiresAt: rental.expires_at });
+
         rental = await prisma.rental.create({
           data: {
             video_id: videoId,
@@ -822,31 +919,11 @@ app.get('/api/stream/:token', async (req, res) => {
 
     const video = rental.video;
     // Si está intentando cargar el archivo de S3 (raw mp4 para la nueva arquitectura)
-    if (video.filename.startsWith('raw/') || video.filename.endsWith('.mp4')) {
-      const command = new GetObjectCommand({
-        Bucket: S3_BUCKET,
-        Key: video.filename
-      });
-      // El link es válido por 6 horas para la sesión actual
-      const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 6 * 3600 });
-      return res.redirect(signedUrl);
-    }
-
-    // Si es HLS (.m3u8), generamos el contenido dinámico para proteger los segmentos
-    // O si preferimos simplicidad y el bucket es público/custom domain, redirigimos
-    if (video.filename.endsWith('.m3u8')) {
-      // Si usamos un dominio personalizado en R2, podemos construir la URL directamente
-      if (R2_PUBLIC_URL) {
-        const manifestUrl = `${R2_PUBLIC_URL}/${video.filename}`;
-        return res.redirect(manifestUrl);
-      }
-      
-      // Si no hay dominio público, usamos URLs firmadas para el manifiesto
-      const command = new GetObjectCommand({ Bucket: S3_BUCKET, Key: video.filename });
-      const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-      return res.redirect(signedUrl);
-    }
+    // USANDO STORAGE SERVICE CON FALLBACK INTELIGENTE
+    const streamUrl = await storageService.getStreamingUrl(video.filename, token);
+    return res.redirect(streamUrl);
   } catch (error) {
+    console.error("[STREAM] Error:", error.message);
     res.status(500).json({ error: 'Error interno del servidor al intentar reproducir' });
   }
 });

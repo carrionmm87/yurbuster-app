@@ -12,7 +12,7 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true
       },
-      '/yurbuster-videos-local': {
+      '/video-rental-app': {
         target: 'http://localhost:4568',
         changeOrigin: true
       }

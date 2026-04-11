@@ -18,7 +18,7 @@ import Contact from './pages/Contact';
 import AgeGateModal from './components/AgeGateModal';
 import axios from 'axios';
 
-// Configure Axios
+// Configure Axios para usar rutas relativas (compatible con proxy de Vite y Túnel de Cloudflare)
 axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
 
 function App() {
@@ -74,7 +74,7 @@ function App() {
         <Route path="/login" element={!user ? <Login onLogin={handleLogin} /> : <Navigate to="/" />} />
         <Route path="/register" element={!user ? <Register onLogin={handleLogin} /> : <Navigate to="/" />} />
         <Route path="/upload" element={user && (user.role === 'creator' || user.role === 'admin') ? <Upload /> : <Navigate to="/" />} />
-        <Route path="/my-rentals" element={user ? <MyRentals /> : <Navigate to="/login" />} />
+        <Route path="/my-rentals" element={user ? <MyRentals isAgeVerified={isAgeVerified} /> : <Navigate to="/login" />} />
         <Route path="/creator" element={user && user.role === 'creator' ? <CreatorDashboard /> : <Navigate to="/" />} />
         <Route path="/admin" element={user && (user.role === 'admin' || user.role === 'admin' || user.username === 'admin') ? <AdminDashboard /> : <Navigate to="/" />} />
         <Route path="/payment-success" element={user ? <PaymentSuccess /> : <Navigate to="/login" />} />

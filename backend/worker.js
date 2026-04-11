@@ -5,14 +5,21 @@ const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const { NodeHttpHandler } = require("@smithy/node-http-handler");
+const { Agent } = require("https");
+const crypto = require('crypto');
 
-// Configuración FFMPEG
-ffmpeg.setFfmpegPath('C:\\Users\\USER\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe'); 
-
+// Configuración FFMPEG basada en el sistema operativo
+if (process.platform === 'win32') {
+  ffmpeg.setFfmpegPath('C:\\Users\\USER\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-8.1-full_build\\bin\\ffmpeg.exe'); 
+} else {
+  ffmpeg.setFfmpegPath('ffmpeg');
+}
 const prisma = new PrismaClient();
+const endpoint = (process.env.S3_ENDPOINT || '').trim().replace(/\/$/, '');
 const s3Client = new S3Client({
   region: 'auto',
-  endpoint: process.env.S3_ENDPOINT,
+  endpoint: endpoint,
   credentials: {
     accessKeyId: process.env.S3_ACCESS_KEY,
     secretAccessKey: process.env.S3_SECRET_KEY,
