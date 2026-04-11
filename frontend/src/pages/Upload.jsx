@@ -42,12 +42,9 @@ const Upload = () => {
 
     if (!data.isCloud) throw new Error('Servicio Cloud no disponible');
 
-    // 2. Subir directamente a R2 (Sin límite de tiempo para archivos gigantes)
+    // 2. Subir directamente a R2 (Sin cabeceras extras para evitar errores de firma)
     await axios.put(data.url, fileToUpload, {
-      headers: { 
-          'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' // Obligatorio para R2
-      },
-      timeout: 0, // ¡PACIENCIA INFINITA! No cortar por tiempo
+      timeout: 0, 
       onUploadProgress: (progressEvent) => {
         if (type === 'video') {
             const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
