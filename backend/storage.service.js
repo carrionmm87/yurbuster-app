@@ -1,5 +1,6 @@
 const { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const crypto = require('crypto');
 require('dotenv').config();
 
 class StorageService {
@@ -12,24 +13,23 @@ class StorageService {
             ? process.env.S3_MOCK_ENDPOINT 
             : process.env.S3_ENDPOINT;
         
-        const endpoint = (rawEndpoint || '').trim().replace(/\/$/, '');
+        this.endpoint = (rawEndpoint || '').trim().replace(/\/$/, '');
+        this.accessKey = (process.env.S3_ACCESS_KEY || '').trim();
+        this.secretKey = (process.env.S3_SECRET_KEY || '').trim();
+        this.bucket = process.env.S3_BUCKET;
+        this.publicUrl = this.mode === 'local_mock' ? '/video-rental-app' : process.env.R2_PUBLIC_URL;
 
-        console.log(`[STORAGE] Iniciando en modo: ${this.mode} -> Endpoint: ${endpoint}`);
+        console.log(`[STORAGE] Iniciando en modo: ${this.mode} -> Endpoint: ${this.endpoint}`);
 
         this.s3Client = new S3Client({
             region: 'auto',
-            endpoint: endpoint,
+            endpoint: this.endpoint,
             credentials: {
-                accessKeyId: this.mode === 'local_mock' ? 'S3RVER' : (process.env.S3_ACCESS_KEY || '').trim(),
-                secretAccessKey: this.mode === 'local_mock' ? 'S3RVER' : (process.env.S3_SECRET_KEY || '').trim(),
+                accessKeyId: this.mode === 'local_mock' ? 'S3RVER' : this.accessKey,
+                secretAccessKey: this.mode === 'local_mock' ? 'S3RVER' : this.secretKey,
             },
-            forcePathStyle: true,
-            requestChecksumCalculation: 'WHEN_REQUIRED', // Evita agregar x-amz-checksum headers automáticos
-            responseChecksumValidation: 'WHEN_REQUIRED'
+            forcePathStyle: true
         });
-
-        this.bucket = process.env.S3_BUCKET;
-        this.publicUrl = this.mode === 'local_mock' ? '/video-rental-app' : process.env.R2_PUBLIC_URL;
     }
 
     async checkConnectivity() {
@@ -44,6 +44,67 @@ class StorageService {
         }
         this.initialized = true;
         return this.isCloudAvailable;
+    }
+
+    generatePresignedPutUrl(key, expiresIn = 3600) {
+        const endpoint = new URL(this.endpoint);
+        const host = endpoint.host;
+        const now = new Date();
+        
+        const dateStamp = now.toISOString().replace(/[:\-]|\.\d{3}/g, '').substring(0, 8);
+        const amzDate = now.toISOString().replace(/[:\-]|\.\d{3}/g, '').substring(0, 15) + 'Z';
+        const region = 'auto';
+        const service = 's3';
+        const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+        const credential = `${this.accessKey}/${credentialScope}`;
+
+        const path = `/${this.bucket}/${key}`;
+
+        const queryParams = new URLSearchParams({
+            'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+            'X-Amz-Credential': credential,
+            'X-Amz-Date': amzDate,
+            'X-Amz-Expires': String(expiresIn),
+            'X-Amz-SignedHeaders': 'host',
+        });
+
+        const canonicalQueryString = queryParams.toString();
+        const canonicalHeaders = `host:${host}\n`;
+        const signedHeaders = 'host';
+        const payloadHash = 'UNSIGNED-PAYLOAD';
+
+        const canonicalRequest = [
+            'PUT',
+            path,
+            canonicalQueryString,
+            canonicalHeaders,
+            signedHeaders,
+            payloadHash
+        ].join('\n');
+
+        const stringToSign = [
+            'AWS4-HMAC-SHA256',
+            amzDate,
+            credentialScope,
+            crypto.createHash('sha256').update(canonicalRequest).digest('hex')
+        ].join('\n');
+
+        const hmac = (key, data) => crypto.createHmac('sha256', key).update(data).digest();
+        const signingKey = hmac(
+            hmac(
+                hmac(
+                    hmac(`AWS4${this.secretKey}`, dateStamp),
+                    region
+                ),
+                service
+            ),
+            'aws4_request'
+        );
+        const signature = crypto.createHmac('sha256', signingKey).update(stringToSign).digest('hex');
+
+        const finalUrl = `${this.endpoint}${path}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
+        console.log(`[STORAGE] Presigned URL manual generada para: ${key}`);
+        return finalUrl;
     }
 
     async getFileUrl(filename) {
@@ -63,22 +124,7 @@ class StorageService {
         if (!this.initialized) await this.checkConnectivity();
         if (this.isCloudAvailable) {
             try {
-                const { PutObjectCommand } = require('@aws-sdk/client-s3');
-                const command = new PutObjectCommand({ 
-                    Bucket: this.bucket, 
-                    Key: key
-                });
-                // FIRMA ULTRA-LIMPIA: Solo el host. Evita el Error 400.
-                const rawUrl = await getSignedUrl(this.s3Client, command, { 
-                    expiresIn: 3600,
-                    signableHeaders: new Set(['host'])
-                });
-                // Eliminar parámetros de checksum que causa 400 en R2
-                const urlObj = new URL(rawUrl);
-                urlObj.searchParams.delete('x-amz-sdk-checksum-algorithm');
-                urlObj.searchParams.delete('x-amz-checksum-algorithm');
-                const url = urlObj.toString();
-                console.log(`[STORAGE] Presigned URL generada (limpia): ${url.substring(0, 80)}...`);
+                const url = this.generatePresignedPutUrl(key, 3600);
                 return { url, method: 'PUT', isCloud: true };
             } catch (err) {
                 console.error("[STORAGE] Error generando URL de subida:", err.message);
