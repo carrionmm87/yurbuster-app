@@ -43,20 +43,20 @@ const Upload = () => {
 
     // 2. Subir DIRECTAMENTE a R2 con la presigned URL (sin pasar por el backend)
     // IMPORTANTE: No enviar Content-Type header — la firma solo incluye 'host'
-    await axios.put(data.url, file, {
-      headers: { 'Content-Type': '' },
-      transformRequest: [(data, headers) => {
-        delete headers['Content-Type'];
-        return data;
-      }],
-      onUploadProgress: (progressEvent) => {
-        if (type === 'video' && progressEvent.total) {
-          const pct = Math.round((progressEvent.loaded / progressEvent.total) * 85);
-          setProgress(pct);
-          setProgressLabel(`Subiendo video... ${pct}%`);
-        }
-      }
-    });
+   await new Promise((resolve, reject) => {
+  const xhr = new XMLHttpRequest();
+  xhr.open('PUT', data.url);
+  xhr.upload.onprogress = (e) => {
+    if (type === 'video' && e.total) {
+      const pct = Math.round((e.loaded / e.total) * 85);
+      setProgress(pct);
+      setProgressLabel(`Subiendo video... ${pct}%`);
+    }
+  };
+  xhr.onload = () => xhr.status < 400 ? resolve() : reject(new Error(`R2 error: ${xhr.status}`));
+  xhr.onerror = () => reject(new Error('Error de red'));
+  xhr.send(file);
+});
 
     return { fileId: data.fileId, key: data.key };
   };
