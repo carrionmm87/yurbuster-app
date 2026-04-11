@@ -85,6 +85,29 @@ const Home = ({ user, isAgeVerified }) => {
           <p className="hero-subtitle">
             El videoclub definitivo para contenidos digitales exclusivos. Arrienda estrenos y material de tus creadores favoritos por 24 horas, o conviértete en creador subiendo tus propios videos para monetizar al instante en Chile.
           </p>
+          
+          <div style={{
+            background: 'linear-gradient(90deg, rgba(236, 72, 153, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%)',
+            border: '2px solid var(--accent)',
+            borderRadius: '12px',
+            padding: '1.2rem 2rem',
+            maxWidth: '600px',
+            margin: '0 auto 2.5rem',
+            boxShadow: '0 0 20px rgba(236, 72, 153, 0.4)',
+            animation: 'hero-title-pulse 2s ease-in-out infinite alternate'
+          }}>
+            <h3 style={{ 
+              color: '#fff', 
+              fontSize: '1.4rem', 
+              fontWeight: '800', 
+              margin: 0,
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}>
+              🚀 ¡GANA DINERO EXTRA! Y RECIBE TU PAGO TODOS LOS VIERNES 💸
+            </h3>
+          </div>
+
           <a href="#catalogo" className="btn btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.1rem', borderRadius: '50px' }}>
             Explorar Catálogo <ArrowRight size={20} />
           </a>
