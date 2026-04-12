@@ -4,7 +4,33 @@ import { useNavigate } from 'react-router-dom';
 
 const API_BASE = import.meta?.env?.VITE_API_URL || 'https://api.yurbuster.com';
 
-const Upload = () => {
+const Upload = ({ user }) => {
+  // Si es creador y NO está verificado → pantalla de espera
+  if (user?.role === 'creator' && !user?.is_verified) {
+    return (
+      <div className="container animate-fade-in" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <div className="auth-card" style={{ maxWidth: '480px', textAlign: 'center' }}>
+          <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>⏳</div>
+          <h2 style={{ marginBottom: '0.75rem' }}>Verificación Pendiente</h2>
+          <p style={{ color: 'var(--text-muted)', lineHeight: '1.7', marginBottom: '1.5rem' }}>
+            Tu solicitud de creador está siendo revisada por el administrador.
+            Una vez que se apruebe tu carnet de identidad, podrás subir videos a la plataforma.
+          </p>
+          <div style={{
+            background: 'rgba(99,102,241,0.08)',
+            border: '1px solid rgba(99,102,241,0.25)',
+            borderRadius: '10px',
+            padding: '0.9rem 1.2rem',
+            fontSize: '0.85rem',
+            color: 'var(--text-muted)'
+          }}>
+            📧 Recibirás confirmación cuando tu cuenta sea activada.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');

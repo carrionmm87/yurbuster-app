@@ -73,7 +73,7 @@ function App() {
         <Route path="/" element={<Home user={user} isAgeVerified={isAgeVerified} />} />
         <Route path="/login" element={!user ? <Login onLogin={handleLogin} /> : <Navigate to="/" />} />
         <Route path="/register" element={!user ? <Register onLogin={handleLogin} /> : <Navigate to="/" />} />
-        <Route path="/upload" element={user && (user.role === 'creator' || user.role === 'admin') ? <Upload /> : <Navigate to="/" />} />
+        <Route path="/upload" element={user && (user.role === 'creator' || user.role === 'admin') ? <Upload user={user} /> : <Navigate to="/" />} />
         <Route path="/my-rentals" element={user ? <MyRentals isAgeVerified={isAgeVerified} /> : <Navigate to="/login" />} />
         <Route path="/creator" element={user && user.role === 'creator' ? <CreatorDashboard /> : <Navigate to="/" />} />
         <Route path="/admin" element={user && (user.role === 'admin' || user.role === 'admin' || user.username === 'admin') ? <AdminDashboard /> : <Navigate to="/" />} />
