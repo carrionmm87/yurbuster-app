@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PlayCircle, UserPlus, Film, UploadCloud, ArrowRight } from 'lucide-react';
 import PaymentModal from '../components/PaymentModal';
@@ -13,10 +13,21 @@ const Home = ({ user, isAgeVerified }) => {
   const [creatorFilter, setCreatorFilter] = useState('');
   const debounceTimer = useRef(null);
   const navigate = useNavigate();
+  const initialLoadDone = useRef(false);
+
+  // Initial load on component mount
+  useEffect(() => {
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      fetchVideos();
+    }
+  }, []);
 
   // Fetch videos whenever category changes (immediate)
   useEffect(() => {
-    fetchVideos();
+    if (initialLoadDone.current) {
+      fetchVideos();
+    }
   }, [categoryFilter]);
 
   // Fetch videos with debounce when creator filter changes
@@ -38,7 +49,7 @@ const Home = ({ user, isAgeVerified }) => {
       const params = {};
       if (categoryFilter && categoryFilter !== 'todos') params.category = categoryFilter;
       if (creatorFilter) params.creator = creatorFilter;
-      const res = await axios.get('/api/videos', { params });
+      const res = await api.get('/api/videos', { params });
       setVideos(res.data);
     } catch (err) {
       console.error(err);
@@ -73,7 +84,7 @@ const Home = ({ user, isAgeVerified }) => {
 
   const handleRentSuccess = async (videoId) => {
     try {
-      const res = await axios.post('/api/rent', { videoId });
+      const res = await api.post('/api/rent', { videoId });
       setSelectedVideo(null);
       navigate(`/watch/${res.data.token}`);
     } catch (err) {
