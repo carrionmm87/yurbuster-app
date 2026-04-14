@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PlayCircle, UserPlus, Film, UploadCloud, ArrowRight } from 'lucide-react';
@@ -11,13 +11,29 @@ const Home = ({ user, isAgeVerified }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [categoryFilter, setCategoryFilter] = useState('todos');
   const [creatorFilter, setCreatorFilter] = useState('');
+  const debounceTimer = useRef(null);
   const navigate = useNavigate();
 
+  // Fetch videos whenever category changes (immediate)
   useEffect(() => {
     fetchVideos();
-  }, [categoryFilter, creatorFilter]);
+  }, [categoryFilter]);
+
+  // Fetch videos with debounce when creator filter changes
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+    debounceTimer.current = setTimeout(() => {
+      fetchVideos();
+    }, 300); // 300ms debounce
+
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, [creatorFilter]);
 
   const fetchVideos = async () => {
+    setLoading(true);
     try {
       const params = {};
       if (categoryFilter && categoryFilter !== 'todos') params.category = categoryFilter;
@@ -181,17 +197,49 @@ const Home = ({ user, isAgeVerified }) => {
             </select>
           </div>
           <div>
-            <label className="form-label" style={{ fontSize: '0.9rem' }}>Buscar por Creador</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Nombre del creador..."
-              value={creatorFilter}
-              onChange={(e) => setCreatorFilter(e.target.value)}
-              style={{ fontSize: '0.9rem' }}
-            />
+            <label className="form-label" style={{ fontSize: '0.9rem' }}>
+              🔍 Buscar por Creador {creatorFilter && `(${videos.length} resultado${videos.length !== 1 ? 's' : ''})`}
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Escribe el nombre..."
+                value={creatorFilter}
+                onChange={(e) => setCreatorFilter(e.target.value)}
+                style={{ fontSize: '0.9rem', flex: 1 }}
+              />
+              {creatorFilter && (
+                <button
+                  onClick={() => setCreatorFilter('')}
+                  style={{
+                    padding: '0.6rem 0.8rem',
+                    background: 'var(--border)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => e.target.style.background = 'var(--primary)'}
+                  onMouseOut={(e) => e.target.style.background = 'var(--border)'}
+                  title="Limpiar búsqueda"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Loading indicator cuando está filtrando */}
+        {loading && creatorFilter && (
+          <div style={{ textAlign: 'center', marginBottom: '1rem', color: 'var(--accent)', fontSize: '0.9rem', fontWeight: '500' }}>
+            🔄 Filtrando creadores...
+          </div>
+        )}
 
       {videos.length === 0 ? (
         <div className="text-center mt-8" style={{ color: 'var(--text-muted)' }}>No hay videos disponibles por ahora.</div>
