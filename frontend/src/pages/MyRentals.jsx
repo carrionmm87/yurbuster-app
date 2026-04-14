@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { Link } from 'react-router-dom';
 import { Play } from 'lucide-react';
 
@@ -13,7 +13,7 @@ const MyRentals = ({ isAgeVerified }) => {
 
   const fetchRentals = async () => {
     try {
-      const res = await axios.get('/api/rentals');
+      const res = await api.get('/api/rentals');
       console.log("[MY-RENTALS] Datos recibidos:", res.data);
       setRentals(res.data);
     } catch (err) {

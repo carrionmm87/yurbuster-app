@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, X } from 'lucide-react';
-import axios from 'axios';
+import api from '../api';
 
 const PaymentModal = ({ video, onClose }) => {
   const [loading, setLoading] = useState(false);
@@ -8,7 +8,7 @@ const PaymentModal = ({ video, onClose }) => {
   const handlePayment = async () => {
     setLoading(true);
     try {
-      const res = await axios.post('/api/payment/create-charge', { videoId: video.id });
+      const res = await api.post('/api/payment/create-charge', { videoId: video.id });
       if (res.data.init_point) {
         window.location.href = res.data.init_point;
       } else {

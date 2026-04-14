@@ -1048,7 +1048,7 @@ app.post('/api/payment/create-charge', authMiddleware, async (req, res) => {
     const subject = `Arriendo: ${video.title}`;
     
     // Callback URLs
-    const urlReturn = `${BASE_URL}/payment-success`;
+    const urlReturn = `${BASE_URL}/rentals`;
     const urlConfirmation = `${BASE_URL}/api/payment/flow/webhook`;
 
     const paymentResponse = await flowService.createPayment({
