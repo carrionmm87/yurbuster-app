@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import storage from '../utils/storage';
 
 const API_BASE = import.meta?.env?.VITE_API_URL || 'https://api.yurbuster.com';
 
@@ -70,7 +71,7 @@ const Upload = ({ user }) => {
   };
 
   const uploadFileDirectToR2 = async (file, type) => {
-    const token = localStorage.getItem('token');
+    const token = storage.getItem('token');
     const contentType = file.type || (type === 'video' ? 'video/mp4' : 'image/jpeg');
 
     // 1. Pedir presigned URL al backend (incluye contentType para la firma)
@@ -121,7 +122,7 @@ const Upload = ({ user }) => {
     setProgress(0);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = storage.getItem('token');
 
       setProgressLabel('Preparando subida del video...');
       const { fileId: videoId, key: videoKey } = await uploadFileDirectToR2(file, 'video');

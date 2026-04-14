@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import storage from './utils/storage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -24,10 +25,10 @@ axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isAgeVerified, setIsAgeVerified] = useState(localStorage.getItem('ageVerified') === 'true');
+  const [isAgeVerified, setIsAgeVerified] = useState(storage.getItem('ageVerified') === 'true');
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = storage.getItem('token');
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       axios.get('/api/auth/me')
@@ -35,7 +36,7 @@ function App() {
           setUser(res.data.user);
         })
         .catch(() => {
-          localStorage.removeItem('token');
+          storage.removeItem('token');
           delete axios.defaults.headers.common['Authorization'];
         })
         .finally(() => setLoading(false));
@@ -46,19 +47,19 @@ function App() {
 
   const handleLogin = (userData, token) => {
     setUser(userData);
-    localStorage.setItem('token', token);
+    storage.setItem('token', token);
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   };
 
   const handleLogout = () => {
     setUser(null);
-    localStorage.removeItem('token');
+    storage.removeItem('token');
     delete axios.defaults.headers.common['Authorization'];
   };
 
   const handleAgeVerify = () => {
     setIsAgeVerified(true);
-    localStorage.setItem('ageVerified', 'true');
+    storage.setItem('ageVerified', 'true');
   };
 
   if (loading) {
