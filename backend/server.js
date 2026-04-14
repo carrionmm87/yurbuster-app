@@ -515,6 +515,127 @@ app.post('/api/admin/kyc-verify/:userId', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/admin/recover-payments - Recover past payments and create rental records
+app.post('/api/admin/recover-payments', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin' && req.user.username !== 'admin') {
+    return res.status(403).json({ error: 'Acceso denegado' });
+  }
+
+  const { payments } = req.body;
+
+  if (!Array.isArray(payments) || payments.length === 0) {
+    return res.status(400).json({ error: 'Se requiere un array de pagos' });
+  }
+
+  try {
+    const results = [];
+
+    for (const payment of payments) {
+      const { orderId, timestamp, amount, videoId, userId } = payment;
+
+      // Validate required fields
+      if (!orderId || !timestamp || !amount || !videoId || !userId) {
+        results.push({
+          orderId,
+          status: 'error',
+          error: 'Faltan campos requeridos: orderId, timestamp, amount, videoId, userId'
+        });
+        continue;
+      }
+
+      try {
+        // Check if payment already exists
+        const existing = await prisma.rental.findFirst({
+          where: { payment_id: orderId }
+        });
+
+        if (existing) {
+          results.push({
+            orderId,
+            status: 'skipped',
+            reason: 'Ya existe'
+          });
+          continue;
+        }
+
+        // Verify video exists
+        const video = await prisma.video.findUnique({
+          where: { id: videoId }
+        });
+
+        if (!video) {
+          results.push({
+            orderId,
+            status: 'error',
+            error: `Video ${videoId} no encontrado`
+          });
+          continue;
+        }
+
+        // Verify user exists
+        const user = await prisma.user.findUnique({
+          where: { id: userId }
+        });
+
+        if (!user) {
+          results.push({
+            orderId,
+            status: 'error',
+            error: `Usuario ${userId} no encontrado`
+          });
+          continue;
+        }
+
+        // Calculate split (90% creator, 10% platform)
+        const uploaderEarned = Math.floor(amount * 0.9);
+        const platformFee = amount - uploaderEarned;
+
+        // Create rental record
+        const rental = await prisma.rental.create({
+          data: {
+            video_id: videoId,
+            user_id: userId,
+            token: `recovered_${orderId}`,
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            total_paid: parseInt(amount),
+            uploader_earned: uploaderEarned,
+            platform_fee: platformFee,
+            payment_id: orderId,
+            created_at: new Date(timestamp),
+            paid_at: new Date(timestamp)
+          }
+        });
+
+        results.push({
+          orderId,
+          status: 'success',
+          rentalId: rental.id,
+          amount,
+          uploaderEarned,
+          platformFee
+        });
+
+      } catch (error) {
+        results.push({
+          orderId,
+          status: 'error',
+          error: error.message
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      total: payments.length,
+      results
+    });
+
+  } catch (error) {
+    console.error('Payment recovery error:', error);
+    res.status(500).json({ error: 'Error al recuperar pagos' });
+  }
+});
+
 // GET /api/storage/status - Informa al frontend si estamos en modo Local o Cloud
 app.get('/api/storage/status', (req, res) => {
   const isCloud = storageService.isCloudAvailable;
