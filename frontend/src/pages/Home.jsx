@@ -54,13 +54,14 @@ const Home = ({ user, isAgeVerified }) => {
         const videoToOpen = videos.find(v => v.id === videoId);
         if (videoToOpen) {
           handleSelectVideo(videoToOpen);
+          // Remove 'video' from URL after processing so it doesn't trigger on reload
+          const newParams = new URLSearchParams(searchParams);
+          newParams.delete('video');
+          setSearchParams(newParams, { replace: true });
         }
-        // Remove 'video' from URL after processing so it doesn't trigger on reload
-        searchParams.delete('video');
-        setSearchParams(searchParams, { replace: true });
       }
     }
-  }, [videos, searchParams]);
+  }, [videos]);
 
   const handleSelectVideo = (video) => {
     if (!user) {
@@ -242,7 +243,21 @@ const Home = ({ user, isAgeVerified }) => {
         )}
 
       {videos.length === 0 ? (
-        <div className="text-center mt-8" style={{ color: 'var(--text-muted)' }}>No hay videos disponibles por ahora.</div>
+        <div className="text-center mt-8" style={{ color: 'var(--text-muted)' }}>
+          {creatorFilter ? (
+            <>
+              <p>😕 No se encontraron videos de "{creatorFilter}"</p>
+              <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>Intenta con otro nombre de creador</p>
+            </>
+          ) : categoryFilter !== 'todos' ? (
+            <>
+              <p>No hay videos en la categoría "{categoryFilter}"</p>
+              <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>Explora otras categorías</p>
+            </>
+          ) : (
+            <p>No hay videos disponibles por ahora.</p>
+          )}
+        </div>
       ) : (
         <div className="grid">
           {videos.map(v => (
