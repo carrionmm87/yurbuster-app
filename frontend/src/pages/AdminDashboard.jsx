@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { Users, Video, ShoppingCart, DollarSign, PieChart, Activity, ShieldCheck, Briefcase, CheckCircle2, Ticket, FileBadge, Check, X } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -12,9 +12,9 @@ const AdminDashboard = () => {
   const fetchData = async () => {
     try {
       const [statsRes, earningsRes, kycRes] = await Promise.all([
-        axios.get('/api/admin/stats'),
-        axios.get('/api/admin/creators-earnings'),
-        axios.get('/api/admin/kyc-pending')
+        api.get('/api/admin/stats'),
+        api.get('/api/admin/creators-earnings'),
+        api.get('/api/admin/kyc-pending')
       ]);
       setStats(statsRes.data);
       setCreatorsEarnings(earningsRes.data);
@@ -33,7 +33,7 @@ const AdminDashboard = () => {
   const handleKycAction = async (userId, action) => {
     if (!window.confirm(`¿Estás seguro que deseas ${action === 'approve' ? 'aprobar' : 'RECHAZAR y ELIMINAR'} a este creador?`)) return;
     try {
-      await axios.post(`/api/admin/kyc-verify/${userId}`, { action });
+      await api.post(`/api/admin/kyc-verify/${userId}`, { action });
       fetchData(); // Refrescar listas
     } catch (err) {
       alert('Error procesando verificación KYC');
@@ -45,7 +45,7 @@ const AdminDashboard = () => {
     if (!window.confirm('¿Confirmas que ya has realizado la transferencia bancaria y quieres marcar este saldo como pagado?')) return;
     
     try {
-      await axios.post(`/api/admin/payout/${userId}`);
+      await api.post(`/api/admin/payout/${userId}`);
       alert('Pago procesado exitosamente en el sistema.');
       fetchData(); // Refresh stats
     } catch (err) {
