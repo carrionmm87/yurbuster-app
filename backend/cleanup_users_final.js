@@ -8,6 +8,9 @@ const db = new Database(dbPath);
 console.log('\n🔐 Actualizando usuarios...\n');
 
 try {
+  // Disable FK constraints
+  db.exec('PRAGMA foreign_keys = OFF;');
+
   // 1. Hash the new password
   const hashedPassword = bcrypt.hashSync('cometas.811', 10);
 
@@ -23,6 +26,9 @@ try {
   const deleteResult = deleteOthers.run('gatadolce', 'Mankekeee', 'admin');
   console.log(`✅ Eliminados ${deleteResult.changes} usuarios`);
 
+  // Re-enable FK constraints
+  db.exec('PRAGMA foreign_keys = ON;');
+
   // Verify final state
   const users = db.prepare('SELECT id, username, role FROM users ORDER BY username').all();
 
@@ -37,6 +43,7 @@ try {
   process.exit(0);
 } catch (error) {
   console.error('❌ Error:', error.message);
+  db.exec('PRAGMA foreign_keys = ON;');
   db.close();
   process.exit(1);
 }
