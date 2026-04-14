@@ -36,6 +36,9 @@ const Upload = ({ user }) => {
   const [price, setPrice] = useState('');
   const [file, setFile] = useState(null);
   const [thumbnail, setThumbnail] = useState(null);
+  const [duration, setDuration] = useState(0); // Duración en segundos
+  const [category, setCategory] = useState('general');
+  const [isTemporary, setIsTemporary] = useState(false); // 24hrs vs permanente
   const [isOwner, setIsOwner] = useState(false);
   const [hasConsent, setHasConsent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -45,6 +48,20 @@ const Upload = ({ user }) => {
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
   const navigate = useNavigate();
+
+  // Extraer duración del video cuando se selecciona
+  const handleVideoSelect = (e) => {
+    const selectedFile = e.target.files[0];
+    setFile(selectedFile);
+
+    if (selectedFile) {
+      const video = document.createElement('video');
+      video.onloadedmetadata = () => {
+        setDuration(Math.round(video.duration));
+      };
+      video.src = URL.createObjectURL(selectedFile);
+    }
+  };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareLink);
@@ -125,7 +142,10 @@ const Upload = ({ user }) => {
         description,
         price,
         videoKey,
-        thumbnailKey
+        thumbnailKey,
+        duration,
+        category,
+        isTemporary
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -188,11 +208,52 @@ const Upload = ({ user }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="form-group">
                 <label className="form-label">Archivo de Video (.mp4)</label>
-                <input type="file" accept="video/*" className="form-control" onChange={(e) => setFile(e.target.files[0])} required style={{ padding: '0.4rem' }} />
+                <input type="file" accept="video/*" className="form-control" onChange={handleVideoSelect} required style={{ padding: '0.4rem' }} />
+                {duration > 0 && (
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                    ⏱️ Duración: {Math.floor(duration / 60)}m {duration % 60}s
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label">Miniatura (Preview)</label>
                 <input type="file" accept="image/*" className="form-control" onChange={(e) => setThumbnail(e.target.files[0])} style={{ padding: '0.4rem' }} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="form-group">
+                <label className="form-label">Categoría</label>
+                <select className="form-control" value={category} onChange={(e) => setCategory(e.target.value)}>
+                  <option value="general">General</option>
+                  <option value="estreno">Estreno 🎬</option>
+                  <option value="vip">VIP ⭐</option>
+                  <option value="exclusivo">Exclusivo 🔒</option>
+                  <option value="trending">Trending 🔥</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Duración del Video</label>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="videoDuration"
+                      checked={!isTemporary}
+                      onChange={() => setIsTemporary(false)}
+                    />
+                    <span style={{ fontSize: '0.9rem' }}>Permanente ♾️</span>
+                  </label>
+                  <label style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="videoDuration"
+                      checked={isTemporary}
+                      onChange={() => setIsTemporary(true)}
+                    />
+                    <span style={{ fontSize: '0.9rem' }}>24 horas ⏰</span>
+                  </label>
+                </div>
               </div>
             </div>
 

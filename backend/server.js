@@ -610,8 +610,14 @@ app.get('/api/upload/presigned-url', authMiddleware, async (req, res) => {
 // POST /api/upload/confirm - Registra el video después de la subida directa
 app.post('/api/upload/confirm', authMiddleware, async (req, res) => {
   try {
-    const { videoId, title, price, description, videoKey, thumbnailKey } = req.body;
-    
+    const { videoId, title, price, description, videoKey, thumbnailKey, duration, category, isTemporary } = req.body;
+
+    // Calcular expires_at si es temporal (24 horas)
+    let expiresAt = null;
+    if (isTemporary) {
+      expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    }
+
     await prisma.video.create({
       data: {
         id: videoId,
@@ -620,6 +626,10 @@ app.post('/api/upload/confirm', authMiddleware, async (req, res) => {
         filename: videoKey,
         thumbnail: thumbnailKey || '',
         description: description || '',
+        duration: duration ? parseInt(duration) : null,
+        category: category || 'general',
+        is_temporary: isTemporary || false,
+        expires_at: expiresAt,
         uploader_id: req.user.id
       }
     });
@@ -782,24 +792,58 @@ app.post('/api/upload', authMiddleware, uploadFields, async (req, res) => {
 });
 
 
-// GET /api/videos - List available videos
+// GET /api/videos - List available videos (with optional filters)
 app.get('/api/videos', async (req, res) => {
   try {
+    const { category, creator } = req.query;
+    const now = new Date();
+
+    // Build filter conditions
+    const where = {
+      AND: [
+        // Excluir videos temporales expirados
+        {
+          OR: [
+            { is_temporary: false },
+            { expires_at: { gt: now } }
+          ]
+        }
+      ]
+    };
+
+    // Filtrar por categoría si se proporciona
+    if (category && category !== 'todos') {
+      where.AND.push({ category });
+    }
+
+    // Filtrar por creador si se proporciona
+    if (creator) {
+      where.AND.push({
+        uploader: {
+          username: {
+            contains: creator,
+            mode: 'insensitive'
+          }
+        }
+      });
+    }
+
     const videos = await prisma.video.findMany({
+      where,
       include: {
         uploader: {
           select: { username: true }
         }
       }
     });
-    
+
     const transformed = await Promise.all(videos.map(async v => ({
       ...v,
       uploader: v.uploader.username,
       // Miniaturas dinámicas (Local o Remote dependiendo de la conexión)
       thumbnailUrl: v.thumbnail ? await storageService.getFileUrl(v.thumbnail, 'thumbnail') : null
     })));
-    
+
     res.json(transformed);
   } catch (error) {
     console.error("Error al obtener videos:", error);

@@ -32,16 +32,20 @@ model User {
 }
 
 model Video {
-  id          String   @id @default(uuid())
-  title       String
-  price       Int
-  filename    String
-  thumbnail   String?
-  description String?
-  uploader_id String
-  created_at  DateTime @default(now())
-  rentals     Rental[]
-  uploader    User     @relation(fields: [uploader_id], references: [id])
+  id            String    @id @default(uuid())
+  title         String
+  price         Int
+  filename      String
+  thumbnail     String?
+  description   String?
+  duration      Int?      // Duración en segundos
+  category      String    @default("general") // "estreno", "vip", "general", etc.
+  is_temporary  Boolean   @default(false) // Si es 24hrs o permanente
+  expires_at    DateTime? // Cuándo expira si es temporal
+  uploader_id   String
+  created_at    DateTime  @default(now())
+  rentals       Rental[]
+  uploader      User      @relation(fields: [uploader_id], references: [id])
 
   @@map("videos")
 }

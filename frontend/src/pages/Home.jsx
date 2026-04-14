@@ -9,11 +9,27 @@ const Home = ({ user, isAgeVerified }) => {
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [categoryFilter, setCategoryFilter] = useState('todos');
+  const [creatorFilter, setCreatorFilter] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchVideos();
-  }, []);
+  }, [categoryFilter, creatorFilter]);
+
+  const fetchVideos = async () => {
+    try {
+      const params = {};
+      if (categoryFilter && categoryFilter !== 'todos') params.category = categoryFilter;
+      if (creatorFilter) params.creator = creatorFilter;
+      const res = await axios.get('/api/videos', { params });
+      setVideos(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (videos.length > 0) {
@@ -29,17 +45,6 @@ const Home = ({ user, isAgeVerified }) => {
       }
     }
   }, [videos, searchParams]);
-
-  const fetchVideos = async () => {
-    try {
-      const res = await axios.get('/api/videos');
-      setVideos(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSelectVideo = (video) => {
     if (!user) {
@@ -157,6 +162,37 @@ const Home = ({ user, isAgeVerified }) => {
           </div>
         </div>
 
+        {/* Filtros */}
+        <div style={{ marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+          <div>
+            <label className="form-label" style={{ fontSize: '0.9rem' }}>Categoría</label>
+            <select
+              className="form-control"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              style={{ fontSize: '0.9rem' }}
+            >
+              <option value="todos">Todos</option>
+              <option value="general">General</option>
+              <option value="estreno">Estreno 🎬</option>
+              <option value="vip">VIP ⭐</option>
+              <option value="exclusivo">Exclusivo 🔒</option>
+              <option value="trending">Trending 🔥</option>
+            </select>
+          </div>
+          <div>
+            <label className="form-label" style={{ fontSize: '0.9rem' }}>Buscar por Creador</label>
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Nombre del creador..."
+              value={creatorFilter}
+              onChange={(e) => setCreatorFilter(e.target.value)}
+              style={{ fontSize: '0.9rem' }}
+            />
+          </div>
+        </div>
+
       {videos.length === 0 ? (
         <div className="text-center mt-8" style={{ color: 'var(--text-muted)' }}>No hay videos disponibles por ahora.</div>
       ) : (
@@ -181,19 +217,43 @@ const Home = ({ user, isAgeVerified }) => {
                 )}
               </div>
               <div className="video-info">
-                <h3 className="video-title" style={{ marginBottom: '0.25rem' }}>{v.title}</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                  <h3 className="video-title" style={{ marginBottom: '0' }}>{v.title}</h3>
+                  {v.category && v.category !== 'general' && (
+                    <span style={{
+                      fontSize: '0.7rem',
+                      fontWeight: 'bold',
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '4px',
+                      backgroundColor: v.category === 'estreno' ? '#f59e0b' :
+                                      v.category === 'vip' ? '#a855f7' :
+                                      v.category === 'exclusivo' ? '#ef4444' :
+                                      v.category === 'trending' ? '#ec4899' : 'transparent',
+                      color: '#fff',
+                      textTransform: 'uppercase'
+                    }}>
+                      {v.category}
+                    </span>
+                  )}
+                </div>
                 {v.description && (
-                  <p className="text-muted" style={{ 
-                    fontSize: '0.9rem', 
-                    marginBottom: '1rem', 
-                    display: '-webkit-box', 
-                    WebkitLineClamp: 3, 
-                    WebkitBoxOrient: 'vertical', 
+                  <p className="text-muted" style={{
+                    fontSize: '0.9rem',
+                    marginBottom: '0.5rem',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 3,
+                    WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
                     lineHeight: '1.4',
                     color: 'rgba(248, 250, 252, 0.7)'
                   }}>
                     {v.description}
+                  </p>
+                )}
+                {v.duration && (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                    ⏱️ {Math.floor(v.duration / 60)}m {v.duration % 60}s
+                    {v.is_temporary && ' • 24hrs'}
                   </p>
                 )}
                 <div className="video-meta">
