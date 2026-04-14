@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { Film, DollarSign, PlayCircle, Upload, TrendingUp, CreditCard, Save, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -22,8 +22,8 @@ const CreatorDashboard = () => {
     const fetchData = async () => {
       try {
         const [statsRes, meRes] = await Promise.all([
-          axios.get('/api/creator/stats'),
-          axios.get('/api/auth/me')
+          api.get('/api/creator/stats'),
+          api.get('/api/auth/me')
         ]);
         setStats(statsRes.data);
         const user = meRes.data.user;
@@ -51,7 +51,7 @@ const CreatorDashboard = () => {
     setUpdating(true);
     setUpdateMsg('');
     try {
-      await axios.put('/api/creator/profile', bankParams);
+      await api.put('/api/creator/profile', bankParams);
       setUpdateMsg('Datos actualizados correctamente');
       setTimeout(() => setUpdateMsg(''), 3000);
     } catch (err) {
