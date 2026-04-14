@@ -821,7 +821,7 @@ app.get('/api/videos', async (req, res) => {
       where.AND.push({
         uploader: {
           username: {
-            contains: creator,
+            startsWith: creator,
             mode: 'insensitive'
           }
         }
