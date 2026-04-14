@@ -81,7 +81,7 @@ const Home = ({ user, isAgeVerified }) => {
     }
   };
 
-  if (loading) return <div className="container text-center mt-8">Cargando videos...</div>;
+  if (loading && videos.length === 0) return <div className="container text-center mt-8">Cargando videos...</div>;
 
   return (
     <>
