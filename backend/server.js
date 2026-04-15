@@ -1046,9 +1046,9 @@ app.post('/api/payment/create-charge', authMiddleware, async (req, res) => {
     const amount = Math.round(video.price);
     const commerceOrder = `${uuidv4().substring(0, 8)}-${videoId.substring(0, 4)}`;
     const subject = `Arriendo: ${video.title}`;
-    
+
     // Callback URLs
-    const urlReturn = `${BASE_URL}/rentals`;
+    const urlReturn = `${BASE_URL}/payment-success?token={token}&videoId=${videoId}`;
     const urlConfirmation = `${BASE_URL}/api/payment/flow/webhook`;
 
     const paymentResponse = await flowService.createPayment({
@@ -1122,6 +1122,37 @@ app.post('/api/payment/flow/webhook', async (req, res) => {
   }
 
   res.status(200).send('OK');
+});
+
+// GET /api/payment/status/:token - Check payment status (no auth required for polling)
+app.get('/api/payment/status/:token', async (req, res) => {
+  const { token } = req.params;
+  if (!token) return res.status(400).json({ error: 'Se requiere token' });
+
+  try {
+    // Check if rental was already created
+    const rental = await prisma.rental.findFirst({
+      where: { payment_id: token },
+      select: { id: true, token: true, expires_at: true, video: { select: { title: true } } }
+    });
+
+    if (rental) {
+      return res.json({ status: 'confirmed', rentalToken: rental.token, expiresAt: rental.expires_at, videoTitle: rental.video.title });
+    }
+
+    // If not, check Flow status
+    const flowStatus = await flowService.getStatus(token);
+    if (parseInt(flowStatus.status) === 2) {
+      return res.json({ status: 'paid', message: 'Pago confirmado en Flow, esperando creación de rental' });
+    } else if (parseInt(flowStatus.status) === 1) {
+      return res.json({ status: 'pending', message: 'Pago pendiente en Flow' });
+    } else {
+      return res.json({ status: 'failed', message: 'Pago rechazado o cancelado' });
+    }
+  } catch (error) {
+    console.error('[PAY-STATUS] Error:', error.message);
+    res.json({ status: 'unknown', message: 'No se pudo verificar estado', error: error.message });
+  }
 });
 
 // POST /api/rent - Finalize and verify rental after Flow.cl payment

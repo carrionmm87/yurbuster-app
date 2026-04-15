@@ -3,7 +3,8 @@
     "allow": [
       "Bash(\"C:/Users/USER/AppData/Local/Programs/Python/Python314/python.exe\")",
       "Bash(python3 -c ':*)",
-      "Bash(python -c ':*)"
+      "Bash(python -c ':*)",
+      "Bash(grep -r \"??\\\\|?\\\\\\\\.\" src --include=\"*.jsx\" --include=\"*.js\")"
     ]
   }
 }
