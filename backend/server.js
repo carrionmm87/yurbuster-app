@@ -475,7 +475,12 @@ app.get('/api/admin/kyc-pending', authMiddleware, async (req, res) => {
     const mapped = await Promise.all(unverifiedUsers.map(async (u) => {
       let docUrl = null;
       if (u.id_document) {
-        docUrl = await storageService.getFileUrl(u.id_document);
+        try {
+          docUrl = await storageService.getFileUrl(u.id_document);
+        } catch (err) {
+          console.warn(`[KYC] No se pudo obtener URL para ${u.username}:`, err.message);
+          docUrl = u.id_document; // Fallback: mostrar la ruta del documento
+        }
       }
       return { ...u, documentUrl: docUrl };
     }));
@@ -495,23 +500,29 @@ app.post('/api/admin/kyc-verify/:userId', authMiddleware, async (req, res) => {
 
   const { action } = req.body; // 'approve' or 'reject'
 
+  if (!action || !['approve', 'reject'].includes(action)) {
+    return res.status(400).json({ error: 'Acción inválida. Debe ser "approve" o "reject".' });
+  }
+
   try {
     if (action === 'approve') {
-      await prisma.user.update({
+      const user = await prisma.user.update({
         where: { id: req.params.userId },
         data: { is_verified: true }
       });
-      res.json({ success: true, message: 'Usuario aprobado.' });
+      console.log(`[KYC] Usuario ${user.username} aprobado`);
+      res.json({ success: true, message: `Usuario ${user.username} aprobado.` });
     } else if (action === 'reject') {
-      // Eliminate rejected user entirely to prevent db clogging and allow re-registration
+      const user = await prisma.user.findUnique({ where: { id: req.params.userId } });
       await prisma.user.delete({
         where: { id: req.params.userId }
       });
-      res.json({ success: true, message: 'Usuario rechazado y eliminado.' });
+      console.log(`[KYC] Usuario ${user?.username || req.params.userId} rechazado y eliminado`);
+      res.json({ success: true, message: `Usuario rechazado y eliminado.` });
     }
   } catch (err) {
-    console.error("KYC Error:", err);
-    res.status(500).json({ error: 'Fallo al verificar KYC.'});
+    console.error("KYC Error:", err.message);
+    res.status(500).json({ error: `Error al procesar KYC: ${err.message}` });
   }
 });
 
